@@ -1,0 +1,24 @@
+package my-org:hardware;
+
+interface spi {
+    /// Standard SPI errors
+    variant error {
+        mode-fault,
+        overrun,
+        other,
+    }
+
+    resource spi-device {
+        /// Writes bytes to the SPI device
+        write: func(data: list<u8>) -> result<_, error>;
+
+        /// Reads `len` bytes from the SPI device
+        read: func(len: u64) -> result<list<u8>, error>;
+
+        /// Writes `write` bytes and reads `read-len` bytes in a full-duplex transfer
+        transfer: func(write: list<u8>, read-len: u64) -> result<list<u8>, error>;
+        
+        /// Transfer in place (swapping bytes)
+        transfer-in-place: func(data: list<u8>) -> result<list<u8>, error>;
+    }
+}

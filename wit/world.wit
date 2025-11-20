@@ -1,0 +1,6 @@
+package my-org:hardware;
+
+world app {
+    import spi;
+    export run: func();
+}
