@@ -6,7 +6,9 @@ use wasmtime::{
 };
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
+mod mock_spi;
 pub mod spi;
+
 pub use spi::SpiImplementation;
 
 wasmtime::component::bindgen!({

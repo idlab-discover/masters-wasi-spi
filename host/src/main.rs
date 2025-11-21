@@ -1,9 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
 use host::{HostState, SpiImplementation, setup_linker};
-use linux_embedded_hal::SpidevDevice;
 use wasmtime::{Config, Engine, Store, component::Component};
 use wasmtime_wasi::WasiCtxBuilder;
+
+mod mock_spi;
 
 #[derive(Parser)]
 struct Args {
@@ -23,7 +24,7 @@ fn main() -> Result<()> {
     config.wasm_component_model(true);
     let engine = Engine::new(&config)?;
 
-    let spi_dev = SpidevDevice::open(&args.device)?;
+    let spi_dev = mock_spi::MockSpi;
 
     let mut store = Store::new(
         &engine,
