@@ -1,4 +1,5 @@
 use anyhow::Result;
+use embedded_hal::spi::SpiDevice;
 use wasmtime::{
     Engine,
     component::{HasSelf, Linker, ResourceTable},
@@ -13,14 +14,14 @@ wasmtime::component::bindgen!({
     world: "app",
 });
 
-pub struct HostState {
+pub struct HostState<T> {
     pub table: ResourceTable,
     pub wasi: WasiCtx,
-    pub spi_device: SpiImplementation,
+    pub spi_device: SpiImplementation<T>,
 }
 
-impl HostState {
-    pub fn new(spi_device: SpiImplementation, wasi: WasiCtx) -> Self {
+impl<T> HostState<T> {
+    pub fn new(spi_device: SpiImplementation<T>, wasi: WasiCtx) -> Self {
         Self {
             table: ResourceTable::new(),
             wasi,
@@ -29,7 +30,7 @@ impl HostState {
     }
 }
 
-impl WasiView for HostState {
+impl<T: Send + Sync> WasiView for HostState<T> {
     fn ctx(&mut self) -> WasiCtxView<'_> {
         WasiCtxView {
             ctx: &mut self.wasi,
@@ -38,13 +39,16 @@ impl WasiView for HostState {
     }
 }
 
-pub fn setup_linker(engine: &Engine) -> Result<Linker<HostState>> {
+pub fn setup_linker<T: SpiDevice + Send + Sync + 'static>(
+    engine: &Engine,
+) -> Result<Linker<HostState<T>>> {
     let mut linker = Linker::new(engine);
 
     wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
-    my_org::hardware::spi::add_to_linker::<HostState, HasSelf<SpiImplementation>>(
+
+    my_org::hardware::spi::add_to_linker::<HostState<T>, HasSelf<SpiImplementation<T>>>(
         &mut linker,
-        |state: &mut HostState| &mut state.spi_device,
+        |state: &mut HostState<T>| &mut state.spi_device,
     )?;
 
     Ok(linker)
