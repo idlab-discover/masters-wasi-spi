@@ -1,9 +1,9 @@
 use anyhow::Result;
 use wasmtime::{
     Engine,
-    component::{Linker, ResourceTable},
+    component::{HasSelf, Linker, ResourceTable},
 };
-use wasmtime_wasi::{WasiCtx, WasiView};
+use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
 pub mod spi;
 pub use spi::SpiImplementation;
@@ -30,21 +30,22 @@ impl HostState {
 }
 
 impl WasiView for HostState {
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
-    fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.wasi
+    fn ctx(&mut self) -> WasiCtxView<'_> {
+        WasiCtxView {
+            ctx: &mut self.wasi,
+            table: &mut self.table,
+        }
     }
 }
 
 pub fn setup_linker(engine: &Engine) -> Result<Linker<HostState>> {
     let mut linker = Linker::new(engine);
 
-    wasmtime_wasi::add_to_linker_sync(&mut linker)?;
-    my_org::hardware::spi::add_to_linker(&mut linker, |state: &mut HostState| {
-        &mut state.spi_device
-    })?;
+    wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
+    my_org::hardware::spi::add_to_linker::<HostState, HasSelf<SpiImplementation>>(
+        &mut linker,
+        |state: &mut HostState| &mut state.spi_device,
+    )?;
 
     Ok(linker)
 }

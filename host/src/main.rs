@@ -1,11 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
-use wasmtime::{component::Component, Config, Engine, Store};
-use wasmtime_wasi::WasiCtxBuilder;
-// Ensure these are public in your lib.rs
-use host::{HostState, setup_linker, SpiImplementation};
-// FIX: Import Spidev from the spidev submodule
+use host::{HostState, SpiImplementation, setup_linker};
 use linux_embedded_hal::spidev::Spidev;
+use wasmtime::{Config, Engine, Store, component::Component};
+use wasmtime_wasi::WasiCtxBuilder;
 
 #[derive(Parser)]
 struct Args {
@@ -31,14 +29,14 @@ fn main() -> Result<()> {
         &engine,
         HostState::new(
             SpiImplementation(spi_dev),
-            WasiCtxBuilder::new().inherit_stdout().build()
+            WasiCtxBuilder::new().inherit_stdout().build(),
         ),
     );
 
     let linker = setup_linker(&engine)?;
 
     let component = Component::from_file(&engine, &args.wasm)?;
-    let (app, _) = host::App::instantiate(&mut store, &component, &linker)?;
+    let app = host::App::instantiate(&mut store, &component, &linker)?;
 
     println!("Host: Running guest...");
     app.call_run(&mut store)?;
