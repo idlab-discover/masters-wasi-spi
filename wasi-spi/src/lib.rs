@@ -1,33 +1,38 @@
 use __internal::Vec;
-use embedded_hal::spi::SpiBus;
-use wasmtime::component::{__internal, Resource, bindgen};
+use embedded_hal::spi::SpiDevice as HalSpiDevice;
+use wasmtime::component::{__internal, Resource};
 
-bindgen!({
-    path: "wit",
-});
+pub mod bindings {
+    use wasmtime::component::bindgen;
+    bindgen!({
+        path: "wit",
+    });
+}
 
-use crate::my::hardware::spi::{Error, HostSpiDevice, SpiDevice};
+use crate::bindings::my::hardware::spi::{Error, Host, HostSpiDevice, SpiDevice};
 
 pub struct SpiContext<T> {
     pub bus: T,
 }
 
+impl<T> Host for SpiContext<T> where T: HalSpiDevice + Send + Sync + 'static {}
+
 impl<T> HostSpiDevice for SpiContext<T>
 where
-    T: SpiBus + Send + Sync + 'static,
+    T: HalSpiDevice + Send + Sync + 'static,
     T::Error: std::fmt::Debug,
 {
-    fn read(&mut self, self_: Resource<SpiDevice>, len: u64) -> Result<Vec<u8>, Error> {
+    fn read(&mut self, _self_: Resource<SpiDevice>, len: u64) -> Result<Vec<u8>, Error> {
         println!("SpiContext: read {} bytes", len);
         Err(Error::Busy)
     }
 
-    fn write(&mut self, self_: Resource<SpiDevice>, data: Vec<u8>) -> Result<(), Error> {
+    fn write(&mut self, _self_: Resource<SpiDevice>, data: Vec<u8>) -> Result<(), Error> {
         println!("SpiContext: write {} bytes", data.len());
         Err(Error::Busy)
     }
 
-    fn drop(&mut self, rep: Resource<SpiDevice>) -> anyhow::Result<()> {
+    fn drop(&mut self, _rep: Resource<SpiDevice>) -> anyhow::Result<()> {
         println!("SpiContext: drop resource");
         Ok(())
     }

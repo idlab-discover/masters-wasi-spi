@@ -570,6 +570,7 @@ dependencies = [
  "linux-embedded-hal",
  "wasi-spi",
  "wasmtime",
+ "wasmtime-wasi",
 ]
 
 [[package]]
