@@ -1,7 +1,6 @@
 use __internal::Vec;
 use embedded_hal::spi::SpiBus;
-use wasmtime::component::{bindgen, Resource, __internal};
-
+use wasmtime::component::{__internal, Resource, bindgen};
 
 bindgen!({
     path: "wit",
@@ -28,13 +27,9 @@ where
         Err(Error::Busy)
     }
 
-    fn transfer(&mut self, self_: Resource<SpiDevice>, data: Vec<u8>) -> Result<Vec<u8>, Error> {
-        println!("SpiContext: transfer {} bytes", data.len());
-        Err(Error::Busy)
-    }
-
     fn drop(&mut self, rep: Resource<SpiDevice>) -> anyhow::Result<()> {
         println!("SpiContext: drop resource");
         Ok(())
     }
 }
+
