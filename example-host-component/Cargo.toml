@@ -1,0 +1,10 @@
+[package]
+name = "example-host-component"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+wasmtime = "39.0.0"
+linux-embedded-hal = "0.4.1"
+wasi-spi = { path = "../wasi-spi" }

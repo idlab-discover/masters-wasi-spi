@@ -1,0 +1,10 @@
+package my:hardware;
+
+interface spi {
+    variant error { runtime-error(string) }
+
+    resource spi-device {
+        read: func(len: u64) -> result<list<u8>, error>;
+        write: func(data: list<u8>) -> result<_, error>;
+    }
+}

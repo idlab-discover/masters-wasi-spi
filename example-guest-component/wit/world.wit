@@ -1,0 +1,6 @@
+package my:guest;
+
+world app {
+    use my:hardware/spi.{spi-device};
+    export run: func(device: spi-device);
+}

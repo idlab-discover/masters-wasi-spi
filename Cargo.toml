@@ -1,3 +1,3 @@
 [workspace]
-members = ["host", "guest"]
+members = ["example-guest-component", "wasi-spi", "example-host-component"]
 resolver = "2"
