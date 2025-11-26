@@ -7,13 +7,11 @@ use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::p2::add_to_linker_sync;
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
-// 1. Generate local bindings for the App
 wasmtime::component::bindgen!({
     path: "../example-guest-component/wit",
     world: "app",
 });
 
-// Alias the generated marker type locally
 use crate::my::hardware::spi::SpiDevice as GuestSpiDevice;
 
 pub struct HostState {
@@ -39,8 +37,6 @@ pub fn run(guest_path: &Path) -> Result<()> {
 
     add_to_linker_sync(&mut linker)?;
 
-    // Link the library.
-    // Now that SpiContext<Spidev> implements HostSpiDevice, this inference will succeed.
     wasi_spi::bindings::my::hardware::spi::add_to_linker::<
         HostState,
         HasSelf<SpiContext<SpidevDevice>>,
@@ -58,7 +54,6 @@ pub fn run(guest_path: &Path) -> Result<()> {
     let component = Component::from_file(&engine, guest_path)?;
     let instance = App::instantiate(&mut store, &component, &linker)?;
 
-    // Create the resource handle using the local GuestSpiDevice marker
     let device_resource_rep = 0;
     let device_handle = Resource::<GuestSpiDevice>::new_own(device_resource_rep);
 
