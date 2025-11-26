@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use linux_embedded_hal::SpidevDevice;
-use std::path::Path;
 use wasi_spi::SpiContext;
 use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
 use wasmtime::{Config, Engine, Store};
@@ -29,7 +28,9 @@ impl WasiView for HostState {
     }
 }
 
-pub fn run(guest_path: &Path) -> Result<()> {
+pub fn main() -> Result<()> {
+    let guest_path = "../../target/release/example_guest_component.wasm";
+
     let mut config = Config::new();
     config.wasm_component_model(true);
     let engine = Engine::new(&config)?;
