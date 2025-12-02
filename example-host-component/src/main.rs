@@ -9,14 +9,14 @@ wasmtime::component::bindgen!({
     path: "../example-guest-component/wit",
     world: "app",
     with: {
-        "my:hardware/spi": wasi_spi::bindings::my::hardware::spi,
+        "wasi:spi/spi": wasi_spi::bindings::wasi::spi::spi,
     }
 });
 
 mod mock_spi;
 use mock_spi::MockSpiDevice;
 
-use crate::my::hardware::spi::SpiDevice as GuestSpiDevice;
+use wasi_spi::bindings::wasi::spi::spi::SpiDevice as HostSpiResourceTag;
 
 pub struct HostState {
     ctx: WasiCtx,
@@ -43,12 +43,10 @@ pub fn main() -> Result<()> {
 
     add_to_linker_sync(&mut linker)?;
 
-    wasi_spi::bindings::my::hardware::spi::add_to_linker::<
+    wasi_spi::bindings::wasi::spi::spi::add_to_linker::<
         HostState,
         HasSelf<SpiContext<MockSpiDevice>>,
     >(&mut linker, |state: &mut HostState| &mut state.spi_context)?;
-
-    // let spi_bus = SpidevDevice::open("/dev/spidev0.0").context("Failed to open /dev/spidev0.0")?;
 
     let state = HostState {
         ctx: WasiCtxBuilder::new().inherit_stdio().build(),
@@ -60,10 +58,12 @@ pub fn main() -> Result<()> {
     let component = Component::from_file(&engine, guest_path)?;
     let instance = App::instantiate(&mut store, &component, &linker)?;
 
-    let device_resource_rep = 0;
-    let device_handle = Resource::<GuestSpiDevice>::new_own(device_resource_rep);
+    let device_rep = 0;
+    let device_handle = Resource::<HostSpiResourceTag>::new_own(device_rep);
 
+    println!("Host: Calling guest run()...");
     instance.call_run(&mut store, device_handle)?;
+    println!("Host: Guest finished.");
 
     Ok(())
 }

@@ -1,14 +1,66 @@
-package my:hardware;
+package wasi:spi;
 
 interface spi {
+    /// SPI error kind.
+    /// Maps 1:1 to `embedded_hal::spi::ErrorKind`.
     variant error {
-        runtime-error(string),
-        busy
+        /// The peripheral receive buffer was overrun.
+        overrun,
+        /// Multiple devices on the SPI bus are trying to drive the slave select pin.
+        mode-fault,
+        /// Received data does not conform to the peripheral configuration.
+        frame-format,
+        /// An error occurred while asserting or deasserting the Chip Select pin.
+        chip-select-fault,
+        /// A different error occurred.
+        other,
+    }
+
+    /// SPI transaction operation.
+    /// Maps to `embedded_hal::spi::Operation`.
+    variant operation {
+        /// Read data into a buffer.
+        /// Argument is the number of bytes to read.
+        /// Maps to `Operation::Read`.
+        read(u64),
+
+        /// Write data from a buffer.
+        /// Maps to `Operation::Write`.
+        write(list<u8>),
+
+        /// Write data while reading data into a buffer of the same size.
+        /// Maps to `Operation::Transfer`.
+        /// Note: `TransferInPlace` is functionally identical to this in WASM
+        /// because lists are passed by value/copy.
+        transfer(list<u8>),
+
+        /// Delay for a specified number of nanoseconds.
+        /// Maps to `Operation::DelayNs`.
+        delay-ns(u32),
     }
 
     resource spi-device {
+        /// Do a read within a transaction.
+        /// Convenience for `transaction([read(len)])`.
         read: func(len: u64) -> result<list<u8>, error>;
+
+        /// Do a write within a transaction.
+        /// Convenience for `transaction([write(data)])`.
         write: func(data: list<u8>) -> result<_, error>;
+
+        /// Do a transfer within a transaction.
+        /// Convenience for `transaction([transfer(data)])`.
+        transfer: func(data: list<u8>) -> result<list<u8>, error>;
+
+        /// Perform a transaction consisting of multiple operations.
+        /// Maps to `SpiDevice::transaction`.
+        ///
+        /// Returns a list of results corresponding to the input operations:
+        /// - `read(n)` -> returns `list<u8>` of length n
+        /// - `write(data)` -> returns empty `list<u8>`
+        /// - `transfer(data)` -> returns `list<u8>` of received data (same length as input)
+        /// - `delay-ns` -> returns empty `list<u8>`
+        transaction: func(operations: list<operation>) -> result<list<list<u8>>, error>;
     }
 }
 
