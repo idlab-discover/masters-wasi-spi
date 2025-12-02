@@ -1,5 +1,4 @@
-use anyhow::{Context, Result};
-use linux_embedded_hal::SpidevDevice;
+use anyhow::Result;
 use wasi_spi::SpiContext;
 use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
 use wasmtime::{Config, Engine, Store};
@@ -9,14 +8,20 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 wasmtime::component::bindgen!({
     path: "../example-guest-component/wit",
     world: "app",
+    with: {
+        "my:hardware/spi": wasi_spi::bindings::my::hardware::spi,
+    }
 });
+
+mod mock_spi;
+use mock_spi::MockSpiDevice;
 
 use crate::my::hardware::spi::SpiDevice as GuestSpiDevice;
 
 pub struct HostState {
     ctx: WasiCtx,
     table: ResourceTable,
-    spi_context: SpiContext<SpidevDevice>,
+    spi_context: SpiContext<MockSpiDevice>,
 }
 
 impl WasiView for HostState {
@@ -29,7 +34,7 @@ impl WasiView for HostState {
 }
 
 pub fn main() -> Result<()> {
-    let guest_path = "../../target/release/example_guest_component.wasm";
+    let guest_path = "../target/wasm32-wasip2/release/example_guest_component.wasm";
 
     let mut config = Config::new();
     config.wasm_component_model(true);
@@ -40,15 +45,15 @@ pub fn main() -> Result<()> {
 
     wasi_spi::bindings::my::hardware::spi::add_to_linker::<
         HostState,
-        HasSelf<SpiContext<SpidevDevice>>,
+        HasSelf<SpiContext<MockSpiDevice>>,
     >(&mut linker, |state: &mut HostState| &mut state.spi_context)?;
 
-    let spi_bus = SpidevDevice::open("/dev/spidev0.0").context("Failed to open /dev/spidev0.0")?;
+    // let spi_bus = SpidevDevice::open("/dev/spidev0.0").context("Failed to open /dev/spidev0.0")?;
 
     let state = HostState {
         ctx: WasiCtxBuilder::new().inherit_stdio().build(),
         table: ResourceTable::new(),
-        spi_context: SpiContext { bus: spi_bus },
+        spi_context: SpiContext { bus: MockSpiDevice },
     };
 
     let mut store = Store::new(&engine, state);

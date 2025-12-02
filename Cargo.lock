@@ -567,6 +567,7 @@ name = "example-host-component"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "embedded-hal",
  "linux-embedded-hal",
  "wasi-spi",
  "wasmtime",
