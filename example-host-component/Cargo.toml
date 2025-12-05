@@ -9,3 +9,4 @@ wasmtime = "39.0.0"
 linux-embedded-hal = "0.4.1"
 wasmtime-wasi = "39.0.0"
 embedded-hal = "1.0.0"
+clap = { version = "4.5.53", features = ["derive"] }
