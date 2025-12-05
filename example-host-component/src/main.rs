@@ -43,7 +43,7 @@ pub fn main() -> Result<()> {
 
     add_to_linker_sync(&mut linker)?;
 
-    wasi_spi::bindings::wasi::spi::spi::add_to_linker::<
+    wasi::spi::spi::add_to_linker::<
         HostState,
         HasSelf<SpiContext<MockSpiDevice>>,
     >(&mut linker, |state: &mut HostState| &mut state.spi_context)?;
