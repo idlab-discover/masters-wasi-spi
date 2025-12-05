@@ -1,5 +1,6 @@
 use embedded_hal::spi::{Error, ErrorKind, ErrorType, Operation, SpiDevice};
 
+#[derive(Clone)]
 pub struct MockSpiDevice;
 
 #[derive(Debug)]
