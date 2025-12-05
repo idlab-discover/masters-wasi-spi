@@ -16,7 +16,7 @@ use crate::bindings::wasi::spi::spi::{
 };
 
 pub struct SpiContext<T> {
-    pub bus: T,
+    pub device: T,
 }
 
 /// Helper function to map embedded-hal errors to WASM errors
@@ -39,12 +39,12 @@ where
 {
     fn read(&mut self, _res: Resource<SpiDevice>, len: u64) -> Result<Vec<u8>, WasiSpiError> {
         let mut buffer = vec![0u8; len as usize];
-        self.bus.read(&mut buffer).map_err(map_spi_error)?;
+        self.device.read(&mut buffer).map_err(map_spi_error)?;
         Ok(buffer)
     }
 
     fn write(&mut self, _res: Resource<SpiDevice>, data: Vec<u8>) -> Result<(), WasiSpiError> {
-        self.bus.write(&data).map_err(map_spi_error)
+        self.device.write(&data).map_err(map_spi_error)
     }
 
     fn transfer(
@@ -53,7 +53,7 @@ where
         data: Vec<u8>,
     ) -> Result<Vec<u8>, WasiSpiError> {
         let mut read_buffer = vec![0u8; data.len()];
-        self.bus
+        self.device
             .transfer(&mut read_buffer, &data)
             .map_err(map_spi_error)?;
 
@@ -122,7 +122,7 @@ where
             })
             .collect();
 
-        self.bus.transaction(&mut hal_ops).map_err(map_spi_error)?;
+        self.device.transaction(&mut hal_ops).map_err(map_spi_error)?;
 
         let results = states
             .into_iter()

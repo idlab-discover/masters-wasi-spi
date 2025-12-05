@@ -51,7 +51,7 @@ pub fn main() -> Result<()> {
     let state = HostState {
         ctx: WasiCtxBuilder::new().inherit_stdio().build(),
         table: ResourceTable::new(),
-        spi_context: SpiContext { bus: MockSpiDevice },
+        spi_context: SpiContext { device: MockSpiDevice },
     };
 
     let mut store = Store::new(&engine, state);
