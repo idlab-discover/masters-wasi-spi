@@ -1,30 +1,24 @@
-// src/spi_impl.rs
+use crate::mock_spi::MockSpiDevice;
 use anyhow::Result;
+use embedded_hal::spi::{
+    ErrorKind as HalErrorKind, Operation as HalOperation, SpiDevice as HalSpiDevice,
+};
+use wasi::spi::spi as spi_bindings;
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiView};
-use embedded_hal::spi::{ErrorKind as HalErrorKind, Operation as HalOperation, SpiDevice as HalSpiDevice};
 
-// Import MockSpiDevice from the crate root
-use crate::mock_spi::MockSpiDevice;
-
-// 1. Generate bindings here.
-// The 'App' struct and 'wasi' module will be generated inside this module.
 wasmtime::component::bindgen!({
     path: "../example-guest-component/wit",
     world: "app",
 });
 
-// Alias for the generated WASI SPI Error type
 pub use wasi::spi::spi::Error as WasiSpiError;
 
-// 2. Define the HostState
-// Make fields public or provide a constructor so main.rs can initialize it.
 pub struct HostState {
     pub ctx: WasiCtx,
     pub table: ResourceTable,
 }
 
-// 3. Implement WasiView
 impl WasiView for HostState {
     fn ctx(&mut self) -> wasmtime_wasi::WasiCtxView<'_> {
         wasmtime_wasi::WasiCtxView {
@@ -34,7 +28,6 @@ impl WasiView for HostState {
     }
 }
 
-// 4. Helper to map HAL errors
 fn map_spi_error<E: embedded_hal::spi::Error>(err: E) -> WasiSpiError {
     match err.kind() {
         HalErrorKind::Overrun => WasiSpiError::Overrun,
@@ -45,14 +38,12 @@ fn map_spi_error<E: embedded_hal::spi::Error>(err: E) -> WasiSpiError {
     }
 }
 
-// 5. Implement the generated Host trait
-impl wasi::spi::spi::Host for HostState {}
+impl spi_bindings::Host for HostState {}
 
-// 6. Implement HostSpiDevice
-impl wasi::spi::spi::HostSpiDevice for HostState {
+impl spi_bindings::HostSpiDevice for HostState {
     fn read(
         &mut self,
-        res: Resource<wasi::spi::spi::SpiDevice>,
+        res: Resource<spi_bindings::SpiDevice>,
         len: u64,
     ) -> Result<Vec<u8>, WasiSpiError> {
         let device = self
@@ -67,7 +58,7 @@ impl wasi::spi::spi::HostSpiDevice for HostState {
 
     fn write(
         &mut self,
-        res: Resource<wasi::spi::spi::SpiDevice>,
+        res: Resource<spi_bindings::SpiDevice>,
         data: Vec<u8>,
     ) -> Result<(), WasiSpiError> {
         let device = self
@@ -79,7 +70,7 @@ impl wasi::spi::spi::HostSpiDevice for HostState {
 
     fn transfer(
         &mut self,
-        res: Resource<wasi::spi::spi::SpiDevice>,
+        res: Resource<spi_bindings::SpiDevice>,
         data: Vec<u8>,
     ) -> Result<Vec<u8>, WasiSpiError> {
         let device = self
@@ -88,21 +79,22 @@ impl wasi::spi::spi::HostSpiDevice for HostState {
             .map_err(|_| WasiSpiError::Other)?;
 
         let mut read_buffer = vec![0u8; data.len()];
-        device.transfer(&mut read_buffer, &data).map_err(map_spi_error)?;
+        device
+            .transfer(&mut read_buffer, &data)
+            .map_err(map_spi_error)?;
         Ok(read_buffer)
     }
 
     fn transaction(
         &mut self,
-        res: Resource<wasi::spi::spi::SpiDevice>,
-        operations: Vec<wasi::spi::spi::Operation>,
+        res: Resource<spi_bindings::SpiDevice>,
+        operations: Vec<spi_bindings::Operation>,
     ) -> Result<Vec<Vec<u8>>, WasiSpiError> {
         let device = self
             .table
             .get_mut(&Resource::<MockSpiDevice>::new_borrow(res.rep()))
             .map_err(|_| WasiSpiError::Other)?;
 
-        // Temporary storage for transaction buffers
         struct TransactionState {
             read_buf: Option<Vec<u8>>,
             write_buf: Option<Vec<u8>>,
@@ -113,22 +105,22 @@ impl wasi::spi::spi::HostSpiDevice for HostState {
 
         for op in operations {
             match op {
-                wasi::spi::spi::Operation::Read(len) => states.push(TransactionState {
+                spi_bindings::Operation::Read(len) => states.push(TransactionState {
                     read_buf: Some(vec![0u8; len as usize]),
                     write_buf: None,
                     delay_ns: None,
                 }),
-                wasi::spi::spi::Operation::Write(data) => states.push(TransactionState {
+                spi_bindings::Operation::Write(data) => states.push(TransactionState {
                     read_buf: None,
                     write_buf: Some(data),
                     delay_ns: None,
                 }),
-                wasi::spi::spi::Operation::Transfer(data) => states.push(TransactionState {
+                spi_bindings::Operation::Transfer(data) => states.push(TransactionState {
                     read_buf: Some(vec![0u8; data.len()]),
                     write_buf: Some(data),
                     delay_ns: None,
                 }),
-                wasi::spi::spi::Operation::DelayNs(ns) => states.push(TransactionState {
+                spi_bindings::Operation::DelayNs(ns) => states.push(TransactionState {
                     read_buf: None,
                     write_buf: None,
                     delay_ns: Some(ns),
@@ -159,8 +151,9 @@ impl wasi::spi::spi::HostSpiDevice for HostState {
             .collect())
     }
 
-    fn drop(&mut self, res: Resource<wasi::spi::spi::SpiDevice>) -> anyhow::Result<()> {
-        self.table.delete::<MockSpiDevice>(Resource::new_own(res.rep()))?;
+    fn drop(&mut self, res: Resource<spi_bindings::SpiDevice>) -> Result<()> {
+        self.table
+            .delete::<MockSpiDevice>(Resource::new_own(res.rep()))?;
         Ok(())
     }
 }
