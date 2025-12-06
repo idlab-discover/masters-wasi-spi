@@ -1,3 +1,4 @@
+use core::fmt;
 use embedded_hal::spi::{Error, ErrorKind, ErrorType, Operation, SpiDevice};
 
 #[derive(Clone)]
@@ -5,6 +6,14 @@ pub struct MockSpiDevice;
 
 #[derive(Debug)]
 pub enum MockSpiError {}
+
+impl fmt::Display for MockSpiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Simulated Mock SPI Error")
+    }
+}
+
+impl std::error::Error for MockSpiError {}
 
 impl Error for MockSpiError {
     fn kind(&self) -> ErrorKind {
@@ -18,7 +27,6 @@ impl ErrorType for MockSpiDevice {
 
 impl SpiDevice for MockSpiDevice {
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
-        // You can iterate through operations here if you want to inspect data
         for op in operations {
             match op {
                 Operation::Read(buf) => {
@@ -30,7 +38,9 @@ impl SpiDevice for MockSpiDevice {
                 }
                 Operation::Transfer(read, write) => {
                     println!("MockSpiImpl: Transaction Transfer");
-                    read.copy_from_slice(&write[..read.len()]); // Loopback example
+
+                    let len = read.len().min(write.len());
+                    read[..len].copy_from_slice(&write[..len]);
                 }
                 Operation::TransferInPlace(_buf) => {
                     println!("MockSpiImpl: Transaction Transfer In Place");

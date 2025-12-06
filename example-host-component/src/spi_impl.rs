@@ -1,8 +1,6 @@
-use crate::mock_spi::MockSpiDevice;
+use crate::spi_trait::SpiResource;
 use anyhow::Result;
-use embedded_hal::spi::{
-    ErrorKind as HalErrorKind, Operation as HalOperation, SpiDevice as HalSpiDevice,
-};
+use embedded_hal::spi::Operation as HalOperation;
 use wasi::spi::spi as spi_bindings;
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiView};
@@ -28,16 +26,6 @@ impl WasiView for HostState {
     }
 }
 
-fn map_spi_error<E: embedded_hal::spi::Error>(err: E) -> WasiSpiError {
-    match err.kind() {
-        HalErrorKind::Overrun => WasiSpiError::Overrun,
-        HalErrorKind::ModeFault => WasiSpiError::ModeFault,
-        HalErrorKind::FrameFormat => WasiSpiError::FrameFormat,
-        HalErrorKind::ChipSelectFault => WasiSpiError::ChipSelectFault,
-        _ => WasiSpiError::Other,
-    }
-}
-
 impl spi_bindings::Host for HostState {}
 
 impl spi_bindings::HostSpiDevice for HostState {
@@ -46,13 +34,18 @@ impl spi_bindings::HostSpiDevice for HostState {
         res: Resource<spi_bindings::SpiDevice>,
         len: u64,
     ) -> Result<Vec<u8>, WasiSpiError> {
-        let device = self
+        let resource_entry = self
             .table
-            .get_mut(&Resource::<MockSpiDevice>::new_borrow(res.rep()))
+            .get_mut(&Resource::<SpiResource>::new_borrow(res.rep()))
             .map_err(|_| WasiSpiError::Other)?;
 
         let mut buffer = vec![0u8; len as usize];
-        device.read(&mut buffer).map_err(map_spi_error)?;
+
+        resource_entry
+            .device
+            .read(&mut buffer)
+            .map_err(|_| WasiSpiError::Other)?;
+
         Ok(buffer)
     }
 
@@ -61,11 +54,15 @@ impl spi_bindings::HostSpiDevice for HostState {
         res: Resource<spi_bindings::SpiDevice>,
         data: Vec<u8>,
     ) -> Result<(), WasiSpiError> {
-        let device = self
+        let resource_entry = self
             .table
-            .get_mut(&Resource::<MockSpiDevice>::new_borrow(res.rep()))
+            .get_mut(&Resource::<SpiResource>::new_borrow(res.rep()))
             .map_err(|_| WasiSpiError::Other)?;
-        device.write(&data).map_err(map_spi_error)
+
+        resource_entry
+            .device
+            .write(&data)
+            .map_err(|_| WasiSpiError::Other)
     }
 
     fn transfer(
@@ -73,15 +70,18 @@ impl spi_bindings::HostSpiDevice for HostState {
         res: Resource<spi_bindings::SpiDevice>,
         data: Vec<u8>,
     ) -> Result<Vec<u8>, WasiSpiError> {
-        let device = self
+        let resource_entry = self
             .table
-            .get_mut(&Resource::<MockSpiDevice>::new_borrow(res.rep()))
+            .get_mut(&Resource::<SpiResource>::new_borrow(res.rep()))
             .map_err(|_| WasiSpiError::Other)?;
 
         let mut read_buffer = vec![0u8; data.len()];
-        device
+
+        resource_entry
+            .device
             .transfer(&mut read_buffer, &data)
-            .map_err(map_spi_error)?;
+            .map_err(|_| WasiSpiError::Other)?;
+
         Ok(read_buffer)
     }
 
@@ -90,9 +90,9 @@ impl spi_bindings::HostSpiDevice for HostState {
         res: Resource<spi_bindings::SpiDevice>,
         operations: Vec<spi_bindings::Operation>,
     ) -> Result<Vec<Vec<u8>>, WasiSpiError> {
-        let device = self
+        let resource_entry = self
             .table
-            .get_mut(&Resource::<MockSpiDevice>::new_borrow(res.rep()))
+            .get_mut(&Resource::<SpiResource>::new_borrow(res.rep()))
             .map_err(|_| WasiSpiError::Other)?;
 
         struct TransactionState {
@@ -102,7 +102,6 @@ impl spi_bindings::HostSpiDevice for HostState {
         }
 
         let mut states = Vec::with_capacity(operations.len());
-
         for op in operations {
             match op {
                 spi_bindings::Operation::Read(len) => states.push(TransactionState {
@@ -143,7 +142,10 @@ impl spi_bindings::HostSpiDevice for HostState {
             })
             .collect();
 
-        device.transaction(&mut hal_ops).map_err(map_spi_error)?;
+        resource_entry
+            .device
+            .transaction(&mut hal_ops)
+            .map_err(|_| WasiSpiError::Other)?;
 
         Ok(states
             .into_iter()
@@ -153,7 +155,7 @@ impl spi_bindings::HostSpiDevice for HostState {
 
     fn drop(&mut self, res: Resource<spi_bindings::SpiDevice>) -> Result<()> {
         self.table
-            .delete::<MockSpiDevice>(Resource::new_own(res.rep()))?;
+            .delete::<SpiResource>(Resource::new_own(res.rep()))?;
         Ok(())
     }
 }
