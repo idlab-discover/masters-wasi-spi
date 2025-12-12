@@ -1,3 +1,4 @@
+use anyhow::Context;
 use embedded_hal::spi::{Operation as HalOperation, SpiDevice as HalSpiDevice};
 use linux_embedded_hal::SpidevDevice;
 use std::collections::HashMap;
@@ -19,15 +20,38 @@ impl<T: WasiSpiView + 'static> HasData for Spi<T> {
     type Data<'a> = SpiImpl<'a, T>;
 }
 
+pub struct SpiConfig {
+    pub virtual_name: String,
+    pub physical_path: String,
+}
 pub struct WasiSpiCtx {
     pub devices: HashMap<String, Resource<SpiDeviceState>>,
 }
 
 impl WasiSpiCtx {
-    pub fn new() -> Self {
-        Self {
-            devices: HashMap::new(),
+    pub fn from_configs(
+        table: &mut ResourceTable,
+        configs: Vec<SpiConfig>,
+    ) -> anyhow::Result<Self> {
+        let mut devices = HashMap::new();
+
+        for config in configs {
+            // Open the physical device
+            let physical = SpidevDevice::open(&config.physical_path).with_context(|| {
+                format!("Failed to open SPI device at '{}'", config.physical_path)
+            })?;
+
+            // Wrap in state struct
+            let state = SpiDeviceState { device: physical };
+
+            // Push to table to get the Resource handle
+            let handle = table.push(state)?;
+
+            // Store in our map
+            devices.insert(config.virtual_name, handle);
         }
+
+        Ok(Self { devices })
     }
 }
 

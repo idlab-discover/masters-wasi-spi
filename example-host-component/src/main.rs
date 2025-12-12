@@ -1,13 +1,11 @@
-use anyhow::Context;
 use clap::Parser;
-use linux_embedded_hal::SpidevDevice;
 use wasmtime::{
     Config, Engine, Store,
     component::{Component, Linker},
 };
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView, p2::add_to_linker_sync};
 
-use wasi_spi::{SpiDeviceState, WasiSpiCtx, WasiSpiView};
+use wasi_spi::{SpiConfig, WasiSpiCtx, WasiSpiView};
 
 mod argument_parser;
 
@@ -19,7 +17,6 @@ wasmtime::component::bindgen!({
 struct HostState {
     ctx: WasiCtx,
     table: ResourceTable,
-
     spi_ctx: WasiSpiCtx,
 }
 
@@ -41,25 +38,24 @@ impl WasiSpiView for HostState {
 fn main() -> anyhow::Result<()> {
     let args = argument_parser::HostArguments::parse();
 
-    let mut state = HostState {
+    let mut table = ResourceTable::new();
+
+    let spi_configs: Vec<SpiConfig> = args
+        .devices
+        .into_iter()
+        .map(|device| SpiConfig {
+            virtual_name: device.virtual_name,
+            physical_path: device.physical_path,
+        })
+        .collect();
+
+    let spi_ctx = WasiSpiCtx::from_configs(&mut table, spi_configs)?;
+
+    let state = HostState {
         ctx: WasiCtxBuilder::new().inherit_stdio().build(),
-        table: ResourceTable::new(),
-        spi_ctx: WasiSpiCtx::new(),
+        table,
+        spi_ctx,
     };
-
-    for device_config in args.devices {
-        let physical_path = device_config.physical_path;
-        let virtual_name = device_config.virtual_name;
-
-        let physical = SpidevDevice::open(&physical_path)
-            .with_context(|| format!("Unable to open device at {}", physical_path))?;
-
-        let device_state = SpiDeviceState { device: physical };
-
-        let handle = state.table.push(device_state)?;
-
-        state.spi_ctx.devices.insert(virtual_name, handle);
-    }
 
     let mut config = Config::new();
     config.wasm_component_model(true);
