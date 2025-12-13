@@ -50,7 +50,8 @@ interface spi {
         device: spi-device,
     }
 
-    get-devices: func() -> list<named-device>;
+    get-device-names: func() -> list<string>;
+    open-device: func(name: string) -> result<spi-device, error>;
 }
 
 world wasi-spi-host {

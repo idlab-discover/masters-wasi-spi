@@ -8,7 +8,7 @@ generate!({
     }
 });
 
-use crate::wasi::spi::spi::{NamedDevice, Operation, get_devices};
+use crate::wasi::spi::spi::{Operation, get_device_names, open_device};
 
 struct MyGuest;
 
@@ -16,52 +16,54 @@ impl Guest for MyGuest {
     fn run() {
         println!("--- [Guest] SPI device discovery ---");
 
-        let devices: Vec<NamedDevice> = get_devices();
+        let device_names = get_device_names();
 
-        if devices.is_empty() {
+        if device_names.is_empty() {
             println!("[Guest] No SPI devices found");
             return;
         }
 
-        println!("[Guest] Found {} device(s)", devices.len());
+        println!(
+            "[Guest] Found {} device(s): {:?}",
+            device_names.len(),
+            device_names
+        );
 
-        for named in devices {
-            let name = named.name;
-            let device = named.device;
+        for name in device_names {
+            println!("\n[Guest] Attempting to open device: {}", name);
 
-            println!("\n[Guest] Using device: {}", name);
+            let device = match open_device(&name) {
+                Ok(d) => d,
+                Err(e) => {
+                    println!("[Guest] Failed to open '{}': {:?}", name, e);
+                    continue;
+                }
+            };
 
-            // WRITE
+            println!(
+                "[Guest] Successfully opened '{}'. Starting operations...",
+                name
+            );
+
             let write_data = [0xCA, 0xFE];
             println!("[Guest] write: {:02X?}", write_data);
             if let Err(e) = device.write(&write_data) {
                 println!("[Guest] write failed: {:?}", e);
-                continue;
             }
 
-            // READ
             println!("[Guest] read 4 bytes");
             match device.read(4) {
                 Ok(data) => println!("[Guest] read: {:02X?}", data),
-                Err(e) => {
-                    println!("[Guest] read failed: {:?}", e);
-                    continue;
-                }
+                Err(e) => println!("[Guest] read failed: {:?}", e),
             }
 
-            // TRANSFER (full-duplex)
             let tx = vec![0x9F, 0x00, 0x00, 0x00];
             println!("[Guest] transfer tx: {:02X?}", tx);
-
             match device.transfer(&tx) {
                 Ok(rx) => println!("[Guest] transfer rx: {:02X?}", rx),
-                Err(e) => {
-                    println!("[Guest] transfer failed: {:?}", e);
-                    continue;
-                }
+                Err(e) => println!("[Guest] transfer failed: {:?}", e),
             }
 
-            // TRANSACTION
             println!("[Guest] transaction");
             let ops = vec![Operation::Write(vec![0x75]), Operation::Read(1)];
 

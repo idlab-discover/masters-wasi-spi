@@ -38,8 +38,6 @@ impl WasiSpiView for HostState {
 fn main() -> anyhow::Result<()> {
     let args = argument_parser::HostArguments::parse();
 
-    let mut table = ResourceTable::new();
-
     let spi_configs: Vec<SpiConfig> = args
         .devices
         .into_iter()
@@ -49,11 +47,11 @@ fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    let spi_ctx = WasiSpiCtx::from_configs(&mut table, spi_configs)?;
+    let spi_ctx = WasiSpiCtx::from_configs(spi_configs)?;
 
     let state = HostState {
         ctx: WasiCtxBuilder::new().inherit_stdio().build(),
-        table,
+        table: ResourceTable::new(),
         spi_ctx,
     };
 

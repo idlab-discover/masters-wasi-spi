@@ -1,9 +1,11 @@
-use anyhow::Context;
 use embedded_hal::spi::{Operation as HalOperation, SpiDevice as HalSpiDevice};
 use linux_embedded_hal::SpidevDevice;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use wasmtime::component::{HasData, Linker, Resource, bindgen};
+use wasmtime::component::{
+    __internal::{String, Vec},
+    HasData, Linker, Resource, bindgen,
+};
 use wasmtime_wasi::{ResourceTable, WasiView};
 
 bindgen!({
@@ -14,44 +16,32 @@ bindgen!({
     }
 });
 
+use wasi::spi::spi as spi_bindings;
+
 pub struct Spi<T>(PhantomData<T>);
 
 impl<T: WasiSpiView + 'static> HasData for Spi<T> {
     type Data<'a> = SpiImpl<'a, T>;
 }
 
+#[derive(Clone)]
 pub struct SpiConfig {
     pub virtual_name: String,
     pub physical_path: String,
 }
 pub struct WasiSpiCtx {
-    pub devices: HashMap<String, Resource<SpiDeviceState>>,
+    pub devices: HashMap<String, String>,
 }
 
 impl WasiSpiCtx {
-    pub fn from_configs(
-        table: &mut ResourceTable,
-        configs: Vec<SpiConfig>,
-    ) -> anyhow::Result<Self> {
+    pub fn from_configs(configs: Vec<SpiConfig>) -> anyhow::Result<Self> {
         let mut devices = HashMap::new();
 
         for config in configs {
-            // Open the physical device
-            let physical = SpidevDevice::open(&config.physical_path).with_context(|| {
-                format!("Failed to open SPI device at '{}'", config.physical_path)
-            })?;
-
-            // Wrap in state struct
-            let state = SpiDeviceState { device: physical };
-
-            // Push to table to get the Resource handle
-            let handle = table.push(state)?;
-
-            // Store in our map
-            devices.insert(config.virtual_name, handle);
+            devices.insert(config.virtual_name, config.physical_path);
         }
 
-        Ok(Self { devices })
+        Ok(Self { devices: devices })
     }
 }
 
@@ -67,7 +57,7 @@ pub fn add_to_linker<T>(linker: &mut Linker<T>) -> anyhow::Result<()>
 where
     T: WasiSpiView + 'static,
 {
-    wasi::spi::spi::add_to_linker::<T, Spi<T>>(linker, |host| SpiImpl { host })
+    spi_bindings::add_to_linker::<T, Spi<T>>(linker, |host| SpiImpl { host })
 }
 
 pub struct SpiImpl<'a, T> {
@@ -84,37 +74,52 @@ impl<'a, T: WasiSpiView> SpiImpl<'a, T> {
     }
 }
 
-impl<'a, T: WasiSpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
-    fn get_devices(&mut self) -> Vec<wasi::spi::spi::NamedDevice> {
-        self.ctx()
+impl<'a, T: WasiSpiView> spi_bindings::Host for SpiImpl<'a, T> {
+    fn get_device_names(&mut self) -> Vec<String> {
+        self.ctx().devices.keys().cloned().collect()
+    }
+
+    fn open_device(
+        &mut self,
+        name: String,
+    ) -> Result<Resource<spi_bindings::SpiDevice>, spi_bindings::Error> {
+        let physical_path = self
+            .ctx()
             .devices
-            .iter()
-            .map(|(name, resource)| wasi::spi::spi::NamedDevice {
-                name: name.clone(),
-                device: Resource::new_own(resource.rep()),
-            })
-            .collect()
+            .get(&name)
+            .ok_or(spi_bindings::Error::Other("Not found".to_string()))?;
+
+        let physical = SpidevDevice::open(physical_path)
+            .map_err(|e| spi_bindings::Error::Other(format!("Failed to open SPI device: {}", e)))?;
+
+        let state = SpiDeviceState { device: physical };
+        let handle = self
+            .table()
+            .push(state)
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
+
+        Ok(handle)
     }
 }
 
-impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
+impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
     fn configure(
         &mut self,
         handle: Resource<SpiDeviceState>,
-        config: wasi::spi::spi::Config,
-    ) -> Result<(), wasi::spi::spi::Error> {
+        config: spi_bindings::Config,
+    ) -> Result<(), spi_bindings::Error> {
         let spi = self
             .table()
             .get_mut(&handle)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
 
         let mode = match config.mode {
-            wasi::spi::spi::Mode::Mode0 => SpiModeFlags::SPI_MODE_0,
-            wasi::spi::spi::Mode::Mode1 => SpiModeFlags::SPI_MODE_1,
-            wasi::spi::spi::Mode::Mode2 => SpiModeFlags::SPI_MODE_2,
-            wasi::spi::spi::Mode::Mode3 => SpiModeFlags::SPI_MODE_3,
+            spi_bindings::Mode::Mode0 => SpiModeFlags::SPI_MODE_0,
+            spi_bindings::Mode::Mode1 => SpiModeFlags::SPI_MODE_1,
+            spi_bindings::Mode::Mode2 => SpiModeFlags::SPI_MODE_2,
+            spi_bindings::Mode::Mode3 => SpiModeFlags::SPI_MODE_3,
         };
 
         let options = SpidevOptions::new()
@@ -125,7 +130,7 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
 
         spi.device
             .configure(&options)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         Ok(())
     }
@@ -134,17 +139,17 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         &mut self,
         handle: Resource<SpiDeviceState>,
         len: u64,
-    ) -> Result<Vec<u8>, wasi::spi::spi::Error> {
+    ) -> Result<Vec<u8>, spi_bindings::Error> {
         let spi = self
             .table()
             .get_mut(&handle)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         let mut buf = vec![0u8; len as usize];
 
         spi.device
             .read(&mut buf)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         Ok(buf)
     }
@@ -153,15 +158,15 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         &mut self,
         handle: Resource<SpiDeviceState>,
         data: Vec<u8>,
-    ) -> Result<(), wasi::spi::spi::Error> {
+    ) -> Result<(), spi_bindings::Error> {
         let spi = self
             .table()
             .get_mut(&handle)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         spi.device
             .write(&data)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         Ok(())
     }
@@ -170,17 +175,17 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         &mut self,
         handle: Resource<SpiDeviceState>,
         data: Vec<u8>,
-    ) -> Result<Vec<u8>, wasi::spi::spi::Error> {
+    ) -> Result<Vec<u8>, spi_bindings::Error> {
         let spi = self
             .table()
             .get_mut(&handle)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         let mut read_buf = vec![0u8; data.len()];
 
         spi.device
             .transfer(&mut read_buf, &data)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         Ok(read_buf)
     }
@@ -188,12 +193,12 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
     fn transaction(
         &mut self,
         handle: Resource<SpiDeviceState>,
-        operations: Vec<wasi::spi::spi::Operation>,
-    ) -> Result<Vec<wasi::spi::spi::OperationResult>, wasi::spi::spi::Error> {
+        operations: Vec<spi_bindings::Operation>,
+    ) -> Result<Vec<spi_bindings::OperationResult>, spi_bindings::Error> {
         let spi = self
             .table()
             .get_mut(&handle)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         enum TransactionBuffers {
             Read(Vec<u8>),
@@ -205,15 +210,15 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         let mut buffers: Vec<TransactionBuffers> = operations
             .into_iter()
             .map(|operation| match operation {
-                wasi::spi::spi::Operation::Read(len) => {
+                spi_bindings::Operation::Read(len) => {
                     TransactionBuffers::Read(vec![0u8; len as usize])
                 }
-                wasi::spi::spi::Operation::Write(write_buf) => TransactionBuffers::Write(write_buf),
-                wasi::spi::spi::Operation::Transfer(write_buf) => TransactionBuffers::Transfer {
+                spi_bindings::Operation::Write(write_buf) => TransactionBuffers::Write(write_buf),
+                spi_bindings::Operation::Transfer(write_buf) => TransactionBuffers::Transfer {
                     read: vec![0u8; write_buf.len()],
                     write: write_buf,
                 },
-                wasi::spi::spi::Operation::DelayNs(ns) => TransactionBuffers::DelayNs(ns),
+                spi_bindings::Operation::DelayNs(ns) => TransactionBuffers::DelayNs(ns),
             })
             .collect();
 
@@ -229,17 +234,17 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
 
         spi.device
             .transaction(&mut hal_operations)
-            .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
         let results = buffers
             .into_iter()
             .map(|buffer| match buffer {
-                TransactionBuffers::Read(data) => wasi::spi::spi::OperationResult::Read(data),
-                TransactionBuffers::Write(_) => wasi::spi::spi::OperationResult::Write,
+                TransactionBuffers::Read(data) => spi_bindings::OperationResult::Read(data),
+                TransactionBuffers::Write(_) => spi_bindings::OperationResult::Write,
                 TransactionBuffers::Transfer { read, .. } => {
-                    wasi::spi::spi::OperationResult::Transfer(read)
+                    spi_bindings::OperationResult::Transfer(read)
                 }
-                TransactionBuffers::DelayNs(_) => wasi::spi::spi::OperationResult::Delay,
+                TransactionBuffers::DelayNs(_) => spi_bindings::OperationResult::Delay,
             })
             .collect();
 
@@ -247,9 +252,7 @@ impl<'a, T: WasiSpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
     }
 
     fn drop(&mut self, rep: Resource<SpiDeviceState>) -> wasmtime::Result<()> {
-        let rep_id = rep.rep();
         self.table().delete(rep)?;
-        self.ctx().devices.retain(|_, r| r.rep() != rep_id);
         Ok(())
     }
 }
