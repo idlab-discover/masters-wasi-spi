@@ -3,7 +3,9 @@ use wasmtime::{
     Config, Engine, Store,
     component::{Component, Linker},
 };
-use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView, p2::add_to_linker_sync};
+use wasmtime_wasi::{
+    ResourceTable, WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView, p2::add_to_linker_sync,
+};
 
 use wasi_spi::{SpiConfig, WasiSpiCtx, WasiSpiView};
 
@@ -21,8 +23,8 @@ struct HostState {
 }
 
 impl WasiView for HostState {
-    fn ctx(&mut self) -> wasmtime_wasi::WasiCtxView<'_> {
-        wasmtime_wasi::WasiCtxView {
+    fn ctx(&mut self) -> WasiCtxView<'_> {
+        WasiCtxView {
             ctx: &mut self.ctx,
             table: &mut self.table,
         }

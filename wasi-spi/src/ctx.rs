@@ -28,7 +28,7 @@ impl WasiSpiCtx {
     }
 }
 
-pub struct SpiDeviceState {
+pub struct ActiveSpiDriver {
     pub device: SpidevDevice,
 }
 
@@ -36,8 +36,8 @@ pub trait WasiSpiView: WasiView {
     fn spi_ctx(&mut self) -> &mut WasiSpiCtx;
 }
 
-pub struct Spi<T>(PhantomData<T>);
+pub struct SpiBindingMarker<T>(PhantomData<T>);
 
-impl<T: WasiSpiView + 'static> HasData for Spi<T> {
+impl<T: WasiSpiView + 'static> HasData for SpiBindingMarker<T> {
     type Data<'a> = SpiImpl<'a, T>;
 }

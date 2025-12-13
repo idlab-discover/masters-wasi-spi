@@ -1,4 +1,4 @@
-use crate::ctx::{SpiDeviceState, WasiSpiCtx, WasiSpiView};
+use crate::ctx::{ActiveSpiDriver, WasiSpiCtx, WasiSpiView};
 use crate::wasi::spi::spi as spi_bindings;
 use embedded_hal::spi::{Operation as HalOperation, SpiDevice as HalSpiDevice};
 use linux_embedded_hal::SpidevDevice;
@@ -40,7 +40,7 @@ impl<'a, T: WasiSpiView> spi_bindings::Host for SpiImpl<'a, T> {
         let physical = SpidevDevice::open(physical_path)
             .map_err(|e| spi_bindings::Error::Other(format!("Failed to open SPI device: {}", e)))?;
 
-        let state = SpiDeviceState { device: physical };
+        let state = ActiveSpiDriver { device: physical };
         let handle = self
             .table()
             .push(state)
@@ -53,7 +53,7 @@ impl<'a, T: WasiSpiView> spi_bindings::Host for SpiImpl<'a, T> {
 impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
     fn configure(
         &mut self,
-        handle: Resource<SpiDeviceState>,
+        handle: Resource<ActiveSpiDriver>,
         config: spi_bindings::Config,
     ) -> Result<(), spi_bindings::Error> {
         let spi = self
@@ -85,7 +85,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
 
     fn read(
         &mut self,
-        handle: Resource<SpiDeviceState>,
+        handle: Resource<ActiveSpiDriver>,
         len: u64,
     ) -> Result<Vec<u8>, spi_bindings::Error> {
         let spi = self
@@ -104,7 +104,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
 
     fn write(
         &mut self,
-        handle: Resource<SpiDeviceState>,
+        handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
     ) -> Result<(), spi_bindings::Error> {
         let spi = self
@@ -121,7 +121,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
 
     fn transfer(
         &mut self,
-        handle: Resource<SpiDeviceState>,
+        handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
     ) -> Result<Vec<u8>, spi_bindings::Error> {
         let spi = self
@@ -140,7 +140,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
 
     fn transaction(
         &mut self,
-        handle: Resource<SpiDeviceState>,
+        handle: Resource<ActiveSpiDriver>,
         operations: Vec<spi_bindings::Operation>,
     ) -> Result<Vec<spi_bindings::OperationResult>, spi_bindings::Error> {
         let spi = self
@@ -199,7 +199,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
         Ok(results)
     }
 
-    fn drop(&mut self, rep: Resource<SpiDeviceState>) -> wasmtime::Result<()> {
+    fn drop(&mut self, rep: Resource<ActiveSpiDriver>) -> wasmtime::Result<()> {
         self.table().delete(rep)?;
         Ok(())
     }
