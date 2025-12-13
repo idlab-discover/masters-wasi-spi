@@ -45,11 +45,6 @@ interface spi {
         transaction: func(operations: list<operation>) -> result<list<operation-result>, error>;
     }
 
-    record named-device {
-        name: string,
-        device: spi-device,
-    }
-
     get-device-names: func() -> list<string>;
     open-device: func(name: string) -> result<spi-device, error>;
 }
