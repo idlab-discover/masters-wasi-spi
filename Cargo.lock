@@ -2155,7 +2155,7 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 [[package]]
 name = "wasi-gpio"
 version = "0.1.0"
-source = "git+https://github.com/lbarraga/wasi-gpio-implementations#6662e81cdd1ff927f127a28fe6fc5f6a045fbf3c"
+source = "git+https://github.com/lbarraga/wasi-gpio-implementations#ba7e18e7320557e6f6ff9d59bbeb0ee316a4cf76"
 dependencies = [
  "anyhow",
  "clap",

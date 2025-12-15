@@ -12,9 +12,10 @@ generate!({
     }
 });
 
-use crate::wasi::spi::spi::{SpiDevice, get_device_names, open_device};
-// 1. Import DigitalOutPin instead of 'get'
 use crate::wasi::gpio::digital::{DigitalFlag, DigitalOutPin, PinState};
+use crate::wasi::spi::spi::{SpiDevice, get_device_names, open_device};
+// Import the standalone delay function directly
+use crate::wasi::gpio::delay::delay_ms;
 
 // Standard SSD1306 Commands
 const CMD_DISPLAY_OFF: u8 = 0xAE;
@@ -22,6 +23,8 @@ const CMD_SET_CHARGE_PUMP: u8 = 0x8D;
 const CMD_SET_SEGMENT_REMAP_127: u8 = 0xA1;
 const CMD_SET_COM_SCAN_REVERSE: u8 = 0xC8;
 const CMD_DISPLAY_ON: u8 = 0xAF;
+const CMD_SET_PRECHARGE: u8 = 0xD9;
+const CMD_SET_CONTRAST: u8 = 0x81;
 
 struct MyGuest;
 
@@ -40,37 +43,47 @@ impl Guest for MyGuest {
         let spi = open_device(spi_name).expect("Failed to open SPI device");
 
         // 2. Open GPIO Pins
-        println!("[Guest] Opening GPIO pins...");
-
-        // 2. Use DigitalFlag::OUTPUT (Uppercase)
+        // We MUST provide ACTIVE_HIGH (or low) to satisfy the host builder
         let output_flags = &[DigitalFlag::OUTPUT, DigitalFlag::ACTIVE_HIGH];
 
-        // 3. Use DigitalOutPin::get()
+        println!("[Guest] Opening GPIO pins...");
         let dc_pin = DigitalOutPin::get("DC", output_flags).expect("Failed to get D/C pin");
         let res_pin = DigitalOutPin::get("RES", output_flags).expect("Failed to get RES pin");
+        let vddc_pin = DigitalOutPin::get("VDDC", output_flags).expect("Failed to get VDDC pin");
+        let vbatc_pin = DigitalOutPin::get("VBATC", output_flags).expect("Failed to get VBATC pin");
 
-        if !dc_pin.is_ready() || !res_pin.is_ready() {
-            println!("[Guest] Error: GPIO pins not ready.");
-            return;
-        }
+        // 3. Power Up Sequence (PmodOLED specific)
+        println!("[Guest] Powering up...");
 
-        // 3. Hardware Reset Sequence
-        println!("[Guest] Resetting OLED...");
+        // A. Turn on Logic Voltage (VDDC)
+        vddc_pin.set_state(PinState::Active).unwrap();
+        delay_ms(5); // Wait for logic to stabilize
+
+        // B. Turn on Display Voltage (VBATC)
+        vbatc_pin.set_state(PinState::Active).unwrap();
+        delay_ms(100); // Wait for high voltage to stabilize
+
+        // 4. Reset Sequence
+        println!("[Guest] Resetting...");
         res_pin.set_state(PinState::Active).unwrap(); // High
-        block_delay_ms(1);
+        delay_ms(1);
         res_pin.set_state(PinState::Inactive).unwrap(); // Low (Reset)
-        block_delay_ms(10);
-        res_pin.set_state(PinState::Active).unwrap(); // High (Operational)
-        block_delay_ms(10);
+        delay_ms(10); // Keep in reset
+        res_pin.set_state(PinState::Active).unwrap(); // High (Release)
+        delay_ms(10);
 
-        // 4. Initialization Sequence
-        println!("[Guest] Sending Initialization Commands...");
+        // 5. Initialization Sequence
+        println!("[Guest] Sending Init Commands...");
         let init_cmds = [
             CMD_DISPLAY_OFF,
             CMD_SET_CHARGE_PUMP,
-            0x14,
-            CMD_SET_SEGMENT_REMAP_127,
-            CMD_SET_COM_SCAN_REVERSE,
+            0x14, // Enable Charge Pump
+            CMD_SET_PRECHARGE,
+            0xF1, // Set Pre-Charge Period
+            CMD_SET_CONTRAST,
+            0xFF,                      // Max Contrast
+            CMD_SET_SEGMENT_REMAP_127, // Invert X
+            CMD_SET_COM_SCAN_REVERSE,  // Invert Y
             CMD_DISPLAY_ON,
         ];
 
@@ -78,22 +91,32 @@ impl Guest for MyGuest {
             send_command(&spi, &dc_pin, cmd);
         }
 
-        // 5. Clear Screen
+        // 6. Clear Screen
         println!("[Guest] Clearing Screen...");
         let clear_buffer = vec![0u8; 512];
         send_data(&spi, &dc_pin, &clear_buffer);
 
-        // 6. Draw Pattern
+        // 7. Draw Pattern
         println!("[Guest] Drawing Pattern...");
         let mut draw_buffer = vec![0u8; 512];
-        for i in 0..128 {
-            if i < 512 {
-                draw_buffer[i] = 1 << (i % 8);
+        for i in 0..512 {
+            // Draw a diagonal-ish striped pattern
+            if i % 2 == 0 {
+                draw_buffer[i] = 0xFF;
+            } else {
+                draw_buffer[i] = 0x00;
             }
         }
         send_data(&spi, &dc_pin, &draw_buffer);
 
         println!("--- [Guest] Drawing Complete ---");
+
+        // Keep screen on for 5 seconds so you can see it before exit
+        delay_ms(5000);
+
+        // Optional: Turn off power before exiting
+        vbatc_pin.set_state(PinState::Inactive).unwrap();
+        vddc_pin.set_state(PinState::Inactive).unwrap();
     }
 }
 
@@ -107,15 +130,6 @@ fn send_command(spi: &SpiDevice, dc_pin: &DigitalOutPin, cmd: u8) {
 fn send_data(spi: &SpiDevice, dc_pin: &DigitalOutPin, data: &[u8]) {
     dc_pin.set_state(PinState::Active).unwrap();
     spi.write(data).expect("SPI write failed");
-}
-
-fn block_delay_ms(ms: u32) {
-    // Fallback delay
-    let iterations = ms * 10000;
-    let mut _volatile = 0;
-    for _ in 0..iterations {
-        _volatile += 1;
-    }
 }
 
 export!(MyGuest);
