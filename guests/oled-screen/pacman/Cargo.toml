@@ -1,10 +1,15 @@
 [package]
-name = "example-guest-component"
+name = "pacman"
 version = "0.1.0"
 edition = "2024"
 
-[lib] 
+[lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 wit-bindgen = "0.48.1"
+
+
+[package.metadata.component]
+package = "my:pacman"
+

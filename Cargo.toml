@@ -1,3 +1,8 @@
 [workspace]
-members = ["example-guest-component", "example-host-component", "wasi-spi"]
+members = [
+    "host",
+    "wasi-spi",
+    "guests/oled-screen/pmod-oled-driver",
+    "guests/oled-screen/pacman",
+]
 resolver = "2"

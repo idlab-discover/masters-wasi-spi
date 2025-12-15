@@ -1,0 +1,9 @@
+package my:pacman;
+
+world app {
+    // Import the interface. 
+    // Since 'graphics.wit' declares package 'my:pmod-oled-driver', we refer to it that way.
+    import my:pmod-oled-driver/graphics;
+
+    export run: func();
+}

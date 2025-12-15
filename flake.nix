@@ -29,6 +29,7 @@
             rustToolchain
             pkgs.wasmtime
             pkgs.cargo-component
+            pkgs.wac-cli
             pkgs.jetbrains.rust-rover
             pkgs.lld
           ];

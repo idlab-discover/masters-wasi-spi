@@ -13,7 +13,7 @@ use wasi_spi::{SpiConfig, WasiSpiCtx, WasiSpiView};
 mod argument_parser;
 
 wasmtime::component::bindgen!({
-    path: "../example-guest-component/wit",
+    path: "../guests/oled-screen/pacman/wit",
     world: "app",
 });
 

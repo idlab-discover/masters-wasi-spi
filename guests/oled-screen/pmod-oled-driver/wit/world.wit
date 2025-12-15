@@ -1,0 +1,11 @@
+package my:pmod-oled-driver;
+
+world driver {
+    // 1. Hardware imports (Internal details)
+    import wasi:spi/spi;
+    import wasi:gpio/digital@0.2.0;
+    import wasi:gpio/delay@0.2.0;
+
+    // 2. Public Export (The interface defined in graphics.wit)
+    export graphics;
+}

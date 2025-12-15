@@ -1,0 +1,26 @@
+package my:pmod-oled-driver;
+
+interface graphics {
+    enum pixel-color { off, on }
+
+    enum display-error {
+        display-off,
+        hardware-error,
+        out-of-bounds
+    }
+
+    resource display {
+        constructor();
+        on: func() -> result<_, display-error>;
+        off: func() -> result<_, display-error>;
+
+        width: func() -> u32;
+        height: func() -> u32;
+
+        clear: func() -> result<_, display-error>;
+        present: func() -> result<_, display-error>;
+        set-pixel: func(x: s32, y: s32, c: pixel-color) -> result<_, display-error>;
+        
+        delay-ms: func(ms: u32);
+    }
+}
