@@ -4,5 +4,6 @@ members = [
     "wasi-spi",
     "guests/oled-screen/pmod-oled-driver",
     "guests/oled-screen/pacman",
+    "guests/oled-screen/ball-screensaver"
 ]
 resolver = "2"
