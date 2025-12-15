@@ -43,7 +43,7 @@ impl Guest for MyGuest {
         println!("[Guest] Opening GPIO pins...");
 
         // 2. Use DigitalFlag::OUTPUT (Uppercase)
-        let output_flags = &[DigitalFlag::OUTPUT];
+        let output_flags = &[DigitalFlag::OUTPUT, DigitalFlag::ACTIVE_HIGH];
 
         // 3. Use DigitalOutPin::get()
         let dc_pin = DigitalOutPin::get("DC", output_flags).expect("Failed to get D/C pin");
