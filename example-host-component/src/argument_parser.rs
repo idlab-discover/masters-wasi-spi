@@ -11,6 +11,10 @@ pub struct HostArguments {
     /// Pre-open SPI devices: "phys_path::virt_name"
     #[arg(long = "device", value_parser = parse_spi_device)]
     pub devices: Vec<SpiDeviceMapping>,
+
+    /// Path to the GPIO policy TOML file
+    #[arg(long = "policy-file")]
+    pub policy_file: String,
 }
 
 #[derive(Debug, Clone)]

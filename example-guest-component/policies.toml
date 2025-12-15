@@ -1,0 +1,25 @@
+[wasi]
+
+# Data/Command Pin
+[[wasi.gpio]]
+vlabel = "DC"
+plabel = "GPIO22"
+modes = ["digital-output"]
+
+# Reset Pin
+[[wasi.gpio]]
+vlabel = "RES"
+plabel = "GPIO23"
+modes = ["digital-output"]
+
+# Battery Voltage Control
+[[wasi.gpio]]
+vlabel = "VBATC"
+plabel = "GPIO24"
+modes = ["digital-output"]
+
+# Logic Voltage Control
+[[wasi.gpio]]
+vlabel = "VDDC"
+plabel = "GPIO25"
+modes = ["digital-output"]
