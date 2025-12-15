@@ -97,11 +97,12 @@ impl Guest for MyGuest {
             update_screen(&spi, &dc, &buffer);
 
             // Animation Logic
-            pos_x += 3;
+            // FIX 1: Move only 1 pixel at a time for smoothness
+            pos_x += 1;
             frame_count += 1;
 
-            // Toggle mouth
-            if frame_count % 2 == 0 {
+            // Toggle mouth every 10 frames (slower mouth animation)
+            if frame_count % 10 == 0 {
                 mouth_open = !mouth_open;
             }
 
@@ -110,7 +111,8 @@ impl Guest for MyGuest {
                 pos_x = -15;
             }
 
-            delay_ms(10); // 0.01s sleep
+            // FIX 2: Increase delay to 33ms (~30 FPS)
+            delay_ms(33);
         }
     }
 }
