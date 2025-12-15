@@ -17,10 +17,10 @@ echo "========================================"
 
 # 1. Build Components
 echo "  🔨 Building Driver..."
-cargo component build -p pmod-oled-driver --target wasm32-wasip2 --release
+cargo build -p pmod-oled-driver --target wasm32-wasip2 --release
 
 echo "  🔨 Building Pacman..."
-cargo component build -p pacman --target wasm32-wasip2 --release
+cargo build -p pacman --target wasm32-wasip2 --release
 
 # 2. Compose
 echo "  🔌 Composing to $FINAL_WASM..."
