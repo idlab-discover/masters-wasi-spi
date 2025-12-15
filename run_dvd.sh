@@ -4,7 +4,7 @@ set -e
 # Define Paths
 TARGET_DIR="target/wasm32-wasip2/release"
 DRIVER_WASM="$TARGET_DIR/pmod_oled_driver.wasm"
-DVD_WASM="$TARGET_DIR/dvd_bounce.wasm"
+DVD_WASM="$TARGET_DIR/ball_screensaver.wasm"
 FINAL_WASM="$TARGET_DIR/dvd_final.wasm"
 
 # Policy file location
@@ -19,7 +19,7 @@ echo "  🔨 Building Driver..."
 cargo build -p pmod-oled-driver --target wasm32-wasip2 --release
 
 echo "  🔨 Building DVD Bounce..."
-cargo build -p dvd-bounce --target wasm32-wasip2 --release
+cargo build -p ball-screensaver --target wasm32-wasip2 --release
 
 # 2. Compose
 echo "  🔌 Composing to $FINAL_WASM..."
