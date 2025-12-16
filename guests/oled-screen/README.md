@@ -34,7 +34,7 @@ To run these demos, you will need the following hardware:
 
 Connect the Pmod OLED to the Raspberry Pi GPIO pins as shown in the diagram below. You can wire them differently, but the policy file will need to change accordingly (see next section)
 
-<img src="./rpi_screen_wires.png" width="200">
+<img src="./rpi_screen_wires.png" width="400">
 
 
 The wires are color coded in the following way:
