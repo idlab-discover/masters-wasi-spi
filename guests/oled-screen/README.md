@@ -117,7 +117,7 @@ cargo build -p pacman --target wasm32-wasip2 --release
 ```
 
 #### 2. Compose the Application
-At this stage, we have two separate Wasm files. The `pacman.wasm` imports a graphics interface, and `pmod_oled_driver.wasm` exports it. We must "plug" them together to create a runnable binary.
+At this stage, we have two separate Wasm files. The `pacman.wasm` imports a graphics interface, and `pmod_oled_driver.wasm` exports it. We must "plug" them together to create a single binary.
 
 ```bash
 # Plug the driver into the pacman app
@@ -127,7 +127,7 @@ wac plug "$TARGET_DIR/pacman.wasm" \
 ```
 
 #### 3. Run the Host
-Finally, we run the generic Host application, passing it our composed Wasm file. We also provide the hardware mapping via flags and the policy file.
+Finally, we run the generic Host application, passing it our composed Wasm binary and policy file.
 
 ```bash
 cargo run -p host -- \
