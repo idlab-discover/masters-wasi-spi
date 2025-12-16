@@ -30,6 +30,7 @@
             pkgs.wasmtime
             pkgs.cargo-component
             pkgs.wac-cli
+            pkgs.wkg
             pkgs.jetbrains.rust-rover
             pkgs.lld
           ];
