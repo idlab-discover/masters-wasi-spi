@@ -46,12 +46,12 @@ The wires are color coded in the following way:
 The specific raspberry pi labels are given in the following diagram:
 
 
-<img src="./rpi_labels.png" width="400">
+<img src="./rpi_labels.png" width="200">
 
 
 Here are the labels for the pmod oled screen. Notice the MISO pin is not connected, as the screen does not send data to the host:
 
-<img src="./screen_labels.png" width="400">
+<img src="./screen_labels.png" width="200">
 
 
 
