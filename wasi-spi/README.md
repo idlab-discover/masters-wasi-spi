@@ -6,20 +6,28 @@ It allows WebAssembly components to communicate with physical SPI devices on Lin
 
 ## Design Philosophy
 
-**`wasi-spi` is not a standalone host component.** Instead, it is designed as a library that exposes a **Trait** ([`WasiSpiView`]) that any Wasmtime host can implement.
+**`wasi-spi` is not a standalone host component.** Instead, it is designed as a library that exposes a **Trait** (`WasiSpiView`) that any Wasmtime host can implement.
 
 ### Why this approach?
-If we implemented the WIT interface directly on a specific `Host` struct, the implementation would be tightly coupled to that specific application. Other developers who want to build their own custom hosts (perhaps combining SPI with other features like I2C or HTTP) would not be able to reuse the SPI logic.
+If we implemented the WIT interface directly on a specific `Host` struct, the implementation would be tightly coupled to that specific application. Other developers who want to build their own custom hosts (maybe combining SPI with other features like I2C or HTTP) would not be able to reuse the SPI logic.
 
-By exposing the implementation via a trait, we decouple the **SPI capability** from the **Host application**. This standardizes the implementation in the WASI development cycle:
-1.  **Library Level:** We provide the logic for talking to the hardware.
-2.  **Host Level:** You simply implement the `WasiSpiView` trait to grant your host access to that logic.
+By exposing the implementation via a trait, we decouple the **SPI capability** from the **Host application**. 
 
 ## Usage
 
 To add SPI capabilities to your Wasmtime host, follow these steps:
 
-### 1. Implement `WasiSpiView`
+
+### 1. Add the library as a dependency
+
+Add the following line to your `Cargo.toml` dependencies:
+
+```toml
+[dependencies]
+wasi-spi = { git = "https://github.com/idlab-discover/masters-wasi-spi", subdir = "wasi-spi" }
+```
+
+### 2. Implement `WasiSpiView`
 Your host state struct must implement the `WasiSpiView` trait. This trait requires you to provide mutable access to a `WasiSpiCtx`.
 
 ```rust
@@ -37,7 +45,7 @@ impl WasiSpiView for MyHost {
 }
 ```
 
-### 2. Add to Linker
+### 3. Add to Linker
 Register the SPI implementation with your Wasmtime `Linker`. This binds the WIT interface functions (guest side) to the Rust implementation (host side).
 
 ```rust
