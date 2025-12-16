@@ -8,7 +8,7 @@ pub struct HostArguments {
     #[arg(index = 1)]
     pub component_path: String,
 
-    /// Pre-open SPI devices: "phys_path::virt_name"
+    /// Device mapping: "phys_path::virt_name"
     #[arg(long = "device", value_parser = parse_spi_device)]
     pub devices: Vec<SpiDeviceMapping>,
 

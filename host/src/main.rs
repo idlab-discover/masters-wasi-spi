@@ -50,10 +50,8 @@ impl WasiGpioView for HostState {
 }
 
 fn main() -> anyhow::Result<()> {
-    // 1. Parse CLI arguments (now includes policy_file)
     let args = argument_parser::HostArguments::parse();
 
-    // 2. Configure SPI Context
     let spi_configs: Vec<SpiConfig> = args
         .devices
         .into_iter()
@@ -65,19 +63,14 @@ fn main() -> anyhow::Result<()> {
 
     let spi_ctx = WasiSpiCtx::from_configs(spi_configs)?;
 
-    // 3. Configure GPIO Context
-    // We construct the Config struct manually to utilize its internal TOML parsing logic
-    // without needing to add 'toml' as a direct dependency in this crate.
     let gpio_config = wasi_gpio::policies::Config {
         policy_file: args.policy_file,
-        component: args.component_path.clone(), // Not strictly used for ctx creation, but required by struct
+        component: args.component_path.clone(),
     };
 
-    // Load policies from the file specified in CLI args
     let policies = gpio_config.get_policies();
     let gpio_ctx = WasiGpioCtx::new(policies);
 
-    // 4. Build Host State
     let state = HostState {
         ctx: WasiCtxBuilder::new().inherit_stdio().build(),
         table: ResourceTable::new(),
@@ -85,23 +78,17 @@ fn main() -> anyhow::Result<()> {
         gpio_ctx,
     };
 
-    // 5. Setup Wasmtime Engine
     let mut config = Config::new();
     config.wasm_component_model(true);
     let engine = Engine::new(&config)?;
     let mut linker = Linker::new(&engine);
 
-    // 6. Add Bindings to Linker
-    // WASI Standard
     add_to_linker_sync(&mut linker)?;
 
-    // SPI
     wasi_spi::add_to_linker(&mut linker)?;
 
-    // GPIO
     wasi_gpio::add_to_linker(&mut linker)?;
 
-    // 7. Instantiate and Run
     let mut store = Store::new(&engine, state);
     let component = Component::from_file(&engine, &args.component_path)?;
 

@@ -23,7 +23,6 @@ use crate::wasi::spi::spi::{Config, Mode, SpiDevice, get_device_names, open_devi
 const WIDTH: u32 = 128;
 const HEIGHT: u32 = 32;
 
-// Datasheet Init Sequence
 const INIT_SEQUENCE: &[u8] = &[
     0xAE, 0x2E, 0xD5, 0x80, 0xA8, 0x1F, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA,
     0x02, 0x81, 0x8F, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6,
@@ -32,29 +31,25 @@ const INIT_SEQUENCE: &[u8] = &[
 struct OledDriver;
 
 impl Guest for OledDriver {
-    // FIX 1: You must link the Rust struct 'Display' to the WIT resource 'Display'
     type Display = Display;
 }
 
-// The Resource Struct
 pub struct Display {
     spi: SpiDevice,
     dc: DigitalOutPin,
-    // Using underscores to suppress unused warnings since we just hold them to keep pins open
+
     _res: DigitalOutPin,
     vbatc: DigitalOutPin,
     vddc: DigitalOutPin,
 
-    // Mutable state needs RefCell because GuestDisplay methods take &self
     buffer: RefCell<Vec<u8>>,
     is_on: Cell<bool>,
 }
 
 impl GuestDisplay for Display {
     fn new() -> Self {
-        // 1. Acquire Hardware
         let names = get_device_names();
-        // Unwrap safely or panic if no SPI found (constructor cannot return Result yet in this bindings version)
+
         let spi = open_device(&names[0]).expect("No SPI device found");
         spi.configure(Config {
             frequency: 8_000_000,
@@ -71,7 +66,6 @@ impl GuestDisplay for Display {
         let vbatc = DigitalOutPin::get("VBATC", flags_low).expect("VBATC pin");
         let vddc = DigitalOutPin::get("VDDC", flags_low).expect("VDDC pin");
 
-        // 2. Return the struct
         Self {
             spi,
             dc,
@@ -88,7 +82,6 @@ impl GuestDisplay for Display {
             return Ok(());
         }
 
-        // Power Sequence
         self.vbatc.set_state(PinState::Inactive).ok();
         self.vddc.set_state(PinState::Inactive).ok();
         host_delay_ms(100);
@@ -97,24 +90,21 @@ impl GuestDisplay for Display {
         self.vbatc.set_state(PinState::Active).ok();
         host_delay_ms(100);
 
-        // Reset Pulse (using _res, need to access via self._res)
         self._res.set_state(PinState::Inactive).ok();
         host_delay_ms(1);
         self._res.set_state(PinState::Active).ok();
         host_delay_ms(10);
         self._res.set_state(PinState::Inactive).ok();
 
-        // Config
         for &c in INIT_SEQUENCE {
-            self.send_cmd(c).map_err(|_| DisplayError::HardwareError)?;
+            self.send_cmd(c)?;
         }
 
         self.is_on.set(true);
 
         self.clear()?;
         self.present()?;
-        self.send_cmd(0xAF)
-            .map_err(|_| DisplayError::HardwareError)?;
+        self.send_cmd(0xAF)?;
 
         Ok(())
     }
@@ -123,8 +113,7 @@ impl GuestDisplay for Display {
         if !self.is_on.get() {
             return Ok(());
         }
-        self.send_cmd(0xAE)
-            .map_err(|_| DisplayError::HardwareError)?;
+        self.send_cmd(0xAE)?;
         self.is_on.set(false);
         Ok(())
     }
@@ -132,6 +121,7 @@ impl GuestDisplay for Display {
     fn width(&self) -> u32 {
         WIDTH
     }
+
     fn height(&self) -> u32 {
         HEIGHT
     }
@@ -144,17 +134,16 @@ impl GuestDisplay for Display {
         Ok(())
     }
 
-    // FIX 2: Use 'i32' here, not 's32'. WIT s32 maps to Rust i32.
     fn set_pixel(&self, x: i32, y: i32, color: PixelColor) -> Result<(), DisplayError> {
         if !self.is_on.get() {
             return Err(DisplayError::DisplayOff);
         }
 
-        if x < 0 || x >= (WIDTH as i32) || y < 0 || y >= (HEIGHT as i32) {
+        if x < 0 || x >= WIDTH as i32 || y < 0 || y >= HEIGHT as i32 {
             return Err(DisplayError::OutOfBounds);
         }
 
-        let idx = (x as usize) + ((y / 8) as usize * 128);
+        let idx = x as usize + (y as usize / 8) * 128;
         let bit = (y % 8) as u8;
 
         let mut buf = self.buffer.borrow_mut();
@@ -170,22 +159,19 @@ impl GuestDisplay for Display {
             return Err(DisplayError::DisplayOff);
         }
 
-        self.send_cmd(0x21)
-            .map_err(|_| DisplayError::HardwareError)?;
-        self.send_cmd(0).map_err(|_| DisplayError::HardwareError)?;
-        self.send_cmd(127)
-            .map_err(|_| DisplayError::HardwareError)?;
-        self.send_cmd(0x22)
-            .map_err(|_| DisplayError::HardwareError)?;
-        self.send_cmd(0).map_err(|_| DisplayError::HardwareError)?;
-        self.send_cmd(3).map_err(|_| DisplayError::HardwareError)?;
+        self.send_cmd(0x21)?;
+        self.send_cmd(0)?;
+        self.send_cmd(127)?;
+        self.send_cmd(0x22)?;
+        self.send_cmd(0)?;
+        self.send_cmd(3)?;
 
         self.dc
             .set_state(PinState::Active)
             .map_err(|_| DisplayError::HardwareError)?;
-        let buf = self.buffer.borrow();
+
         self.spi
-            .write(&buf)
+            .write(&self.buffer.borrow())
             .map_err(|_| DisplayError::HardwareError)?;
 
         Ok(())
@@ -197,9 +183,14 @@ impl GuestDisplay for Display {
 }
 
 impl Display {
-    fn send_cmd(&self, c: u8) -> Result<(), ()> {
-        self.dc.set_state(PinState::Inactive).map_err(|_| ())?;
-        self.spi.write(&[c]).map_err(|_| ())
+    fn send_cmd(&self, c: u8) -> Result<(), DisplayError> {
+        self.dc
+            .set_state(PinState::Inactive)
+            .map_err(|_| DisplayError::HardwareError)?;
+        self.spi
+            .write(&[c])
+            .map_err(|_| DisplayError::HardwareError)?;
+        Ok(())
     }
 }
 
