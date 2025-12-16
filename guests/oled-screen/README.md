@@ -14,14 +14,14 @@ The folder contains of three distinct components:
 
     > **Demo:**
     >
-    > ![Pacman Animation Demo](images/pacman.gif)
+    > ![Pacman Animation Demo](./images/pacman.gif)
 
 3.  **`ball-screensaver` (The Application)**
     A physics simulation of a ball bouncing off the screen walls (similar to the classic DVD screensaver). Like Pacman, it relies entirely on the driver component for rendering.
 
     > **Demo:**
     >
-    > ![Ball Screensaver Demo](images/ball.gif)
+    > ![Ball Screensaver Demo](./images/ball.gif)
 
 ## Hardware Setup
 
@@ -47,12 +47,12 @@ The wires are color coded in the following way:
 The specific raspberry pi labels are given in the following diagram:
 
 
-<img src="images/rpi_labels.png" width="200">
+<img src="./images/rpi_labels.png" width="200">
 
 
 Here are the labels for the pmod oled screen. Notice the MISO pin is not connected, as the screen does not send data to the host:
 
-<img src="images/screen_labels.png" width="200">
+<img src="./images/screen_labels.png" width="200">
 
 
 
