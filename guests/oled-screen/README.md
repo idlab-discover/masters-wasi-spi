@@ -60,7 +60,7 @@ Here are the labels for the pmod oled screen. Notice the MISO pin is not connect
 
 In the WebAssembly Component Model, guests are sandboxed by default. They cannot access system resources (like `/dev/spidev` or specific GPIO pins) unless explicitly granted permission.
 
-To maintain security and portability, we use a TOML **Policy File** (e.g., `policies.toml`). This file maps the physical GPIO pins and spi devices to the virtual names the guest will be able to use. For more info on how to configure the GPIO pins though the policy file, see ![the original repository](https://github.com/idlab-discover/wasi-gpio-implementations).
+To maintain security and portability, we use a TOML **Policy File** (e.g., `policies.toml`). This file maps the physical GPIO pins and spi devices to the virtual names the guest will be able to use. For more info on how to configure the GPIO pins though the policy file, see [the original repository](https://github.com/idlab-discover/wasi-gpio-implementations).
 
 To map the spi devices to a virtual name use the following pattern in the policy file:
 
