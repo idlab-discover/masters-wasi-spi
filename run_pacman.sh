@@ -8,7 +8,7 @@ PACMAN_WASM="$TARGET_DIR/pacman.wasm"
 FINAL_WASM="$TARGET_DIR/pacman_final.wasm"
 
 # Policy file location
-POLICY_FILE="guests/oled-screen/pmod-oled-driver/policies.toml"
+POLICY_FILE="guests/oled-screen/policies.toml"
 
 echo "========================================"
 echo "🕹️  Building Pacman Application..."

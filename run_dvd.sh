@@ -8,7 +8,7 @@ DVD_WASM="$TARGET_DIR/ball_screensaver.wasm"
 FINAL_WASM="$TARGET_DIR/dvd_final.wasm"
 
 # Policy file location
-POLICY_FILE="guests/oled-screen/pmod-oled-driver/policies.toml"
+POLICY_FILE="guests/oled-screen/policies.toml"
 
 echo "========================================"
 echo "💿  Building DVD Screensaver..."
