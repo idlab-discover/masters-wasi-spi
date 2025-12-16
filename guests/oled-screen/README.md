@@ -14,14 +14,14 @@ The folder contains of three distinct components:
 
     > **Demo:**
     >
-    > ![Pacman Animation Demo](pacman.gif)
+    > ![Pacman Animation Demo](images/pacman.gif)
 
 3.  **`ball-screensaver` (The Application)**
     A physics simulation of a ball bouncing off the screen walls (similar to the classic DVD screensaver). Like Pacman, it relies entirely on the driver component for rendering.
 
     > **Demo:**
     >
-    > ![Ball Screensaver Demo](ball.gif)
+    > ![Ball Screensaver Demo](images/ball.gif)
 
 ## Hardware Setup
 
@@ -34,7 +34,7 @@ To run these demos, you will need the following hardware:
 
 Connect the Pmod OLED to the Raspberry Pi GPIO pins as shown in the diagram below. You can wire them differently, but the policy file will need to change accordingly (see next section)
 
-<img src="./rpi_screen_wires.png" width="400">
+<img src="./images/rpi_screen_wires.png" width="400">
 
 
 The wires are color coded in the following way:
@@ -47,12 +47,12 @@ The wires are color coded in the following way:
 The specific raspberry pi labels are given in the following diagram:
 
 
-<img src="./rpi_labels.png" width="200">
+<img src="images/rpi_labels.png" width="200">
 
 
 Here are the labels for the pmod oled screen. Notice the MISO pin is not connected, as the screen does not send data to the host:
 
-<img src="./screen_labels.png" width="200">
+<img src="images/screen_labels.png" width="200">
 
 
 
