@@ -1,12 +1,12 @@
 # WASI SPI
 
-This repository contains a full end-to-end implementation of SPI (Serial Peripheral Interface) support for Wasmtime. It enables Wasm components to communicate with physical hardware on a Linux host (like a Raspberry Pi) using the Component Model.
+This repository contains a full end-to-end implementation of SPI (Serial Peripheral Interface) support for Wasmtime. It provides a standardized **WIT interface** for SPI and enables Wasm components to communicate with physical hardware on a Linux host (like a Raspberry Pi) using the Component Model.
 
 ## Project Structure
 
 This project is split into three parts that work together:
 
-* **[`wasi-spi`](wasi-spi)**: A Rust library that implements the host-side logic for the SPI WIT interface. It exposes a trait so that any Wasmtime host can easily add SPI support without needing to re-write the low-level Linux hardware code.
+* **[`wasi-spi`](wasi-spi)**: A Rust library that implements the host-side logic for the SPI WIT interface. It exposes a trait so that any Wasmtime host can easily add SPI support.
 * **[`host`](host)**: A generic Wasmtime runtime application. It uses the `wasi-spi` and `wasi-gpio` libraries to run Wasm components with access to the real hardware. It uses a policy file to map physical pins to virtual names.
 * **[`guests`](guests/oled-screen)**: Example WebAssembly components. This includes a **Driver** component (which speaks raw SPI to a display peripheral) and **Application** components (like Pacman and Ball Screensaver) that rely on the driver to draw graphics.
 
@@ -28,7 +28,7 @@ The alternative would be for the Host to set the configuration (e.g., via a conf
 
 By letting the Guest set the configuration (via the `configure` function in the WIT interface), the Host remains generic. It simply passes the raw SPI connection to the guest, and the guest decides how to talk to it.
 
-While this means the guest has to handle low-level details, the **Component Model** solves the complexity. We can wrap those specific settings inside a dedicated **Driver Component** (like `pmod-oled-driver`). The actual application component (like `pacman`) then links to that driver and uses high-level functions (like `set-pixel`), completely ignoring the low-level SPI configuration.
+While this may seem like the Guest implementations become more complex, the **Component Model** solves the complexity. We can wrap those specific settings inside a dedicated **Driver Component** (like `pmod-oled-driver`). The actual application component (like `pacman`) then links to that driver and uses high-level functions (like `set-pixel`), completely ignoring the low-level SPI configuration.
 
 ### 2. Device Discovery (Static vs. Dynamic)
 
