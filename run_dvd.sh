@@ -30,5 +30,4 @@ echo "  🚀 Running Host..."
 echo "========================================"
 cargo run -p host -- \
   "$FINAL_WASM" \
-  --device "/dev/spidev0.0::screen" \
   --policy-file "$POLICY_FILE"

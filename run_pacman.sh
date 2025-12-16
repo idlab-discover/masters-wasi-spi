@@ -5,7 +5,6 @@ set -e
 TARGET_DIR="target/wasm32-wasip2/release"
 DRIVER_WASM="$TARGET_DIR/pmod_oled_driver.wasm"
 PACMAN_WASM="$TARGET_DIR/pacman.wasm"
-# We output the composed file into the target dir to keep root clean
 FINAL_WASM="$TARGET_DIR/pacman_final.wasm"
 
 # Policy file location
@@ -31,5 +30,4 @@ echo "  🚀 Running Host..."
 echo "========================================"
 cargo run -p host -- \
   "$FINAL_WASM" \
-  --device "/dev/spidev0.0::screen" \
   --policy-file "$POLICY_FILE"

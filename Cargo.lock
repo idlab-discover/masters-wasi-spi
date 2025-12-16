@@ -889,6 +889,8 @@ dependencies = [
  "clap",
  "embedded-hal",
  "linux-embedded-hal",
+ "serde",
+ "toml 0.8.23",
  "wasi-gpio",
  "wasi-spi",
  "wasmtime",

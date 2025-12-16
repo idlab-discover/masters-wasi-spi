@@ -1,3 +1,5 @@
+use std::fs;
+
 use clap::Parser;
 use wasmtime::{
     Config, Engine, Store,
@@ -10,7 +12,10 @@ use wasmtime_wasi::{
 use wasi_gpio::{WasiGpioCtx, WasiGpioView};
 use wasi_spi::{SpiConfig, WasiSpiCtx, WasiSpiView};
 
+use crate::policies::HostPolicy;
+
 mod argument_parser;
+mod policies;
 
 wasmtime::component::bindgen!({
     path: "../guests/oled-screen/pacman/wit",
@@ -52,12 +57,19 @@ impl WasiGpioView for HostState {
 fn main() -> anyhow::Result<()> {
     let args = argument_parser::HostArguments::parse();
 
-    let spi_configs: Vec<SpiConfig> = args
-        .devices
+    let policy_content = fs::read_to_string(&args.policy_file)
+        .map_err(|e| anyhow::anyhow!("Failed to read policy file: {}", e))?;
+
+    let policy: HostPolicy = toml::from_str(&policy_content)
+        .map_err(|e| anyhow::anyhow!("Failed to parse TOML: {}", e))?;
+
+    let spi_configs: Vec<SpiConfig> = policy
+        .wasi
+        .spi
         .into_iter()
-        .map(|device| SpiConfig {
-            virtual_name: device.virtual_name,
-            physical_path: device.physical_path,
+        .map(|cfg| SpiConfig {
+            virtual_name: cfg.virtual_name,
+            physical_path: cfg.physical_path,
         })
         .collect();
 

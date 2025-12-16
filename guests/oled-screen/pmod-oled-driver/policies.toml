@@ -23,3 +23,8 @@ modes = ["digital-output"]
 vlabel = "VDDC"
 plabel = "GPIO25"
 modes = ["digital-output"]
+
+# The pmod-oled screen
+[[wasi.spi]]
+physical_path = "/dev/spidev0.0"
+virtual_name = "screen"
