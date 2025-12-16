@@ -10,7 +10,7 @@ The folder contains of three distinct components:
     This component handles the low-level hardware interactions. It communicates directly with the host's SPI and GPIO interfaces to control the display. It exposes a high-level `graphics` interface to other Wasm components, providing functions like `set-pixel`, `clear`, and `present`. It effectively abstracts the hardware away from the application logic.
 
 2.  **`pacman` (The Application)**
-    A pure software component that implements a Pacman animation logic. It depends on the `pmod-oled-driver` to actually visualize the game state. It does not know *how* to talk to SPI/GPIO; it simply asks the driver to "draw a yellow pixel here."
+    A pure software component that implements a Pacman animation logic. It depends on the `pmod-oled-driver` to actually visualize the game state. It does not know *how* to talk to SPI/GPIO; it simply asks the driver to "draw a pixel here."
 
     > **Demo:**
     >
@@ -46,11 +46,13 @@ The wires are color coded in the following way:
 The specific raspberry pi labels are given in the following diagram:
 
 
-![Raspberry Pi labels](./rpi_labels.png)
+<img src="./rpi_labels.png" width="400">
+
 
 Here are the labels for the pmod oled screen. Notice the MISO pin is not connected, as the screen does not send data to the host:
 
-![Screen labels](./screen_labels.png)
+<img src="./screen_labels.png" width="400">
+
 
 
 ## Security & Configuration: The Policy File
