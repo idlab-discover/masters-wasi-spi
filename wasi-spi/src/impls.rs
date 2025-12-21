@@ -1,6 +1,8 @@
 use crate::ctx::{ActiveSpiDriver, WasiSpiCtx, WasiSpiView};
 use crate::wasi::spi::spi as spi_bindings;
-use embedded_hal::spi::{Operation as HalOperation, SpiDevice as HalSpiDevice};
+use embedded_hal::spi::{
+    ErrorKind as HalErrorKind, Operation as HalOperation, SpiDevice as HalSpiDevice,
+};
 use linux_embedded_hal::SpidevDevice;
 use wasmtime::component::{
     __internal::{String, Vec},
@@ -22,8 +24,16 @@ impl<'a, T: WasiSpiView> SpiImpl<'a, T> {
     }
 }
 
-fn to_spi_err(e: impl ToString) -> spi_bindings::Error {
-    spi_bindings::Error::Other(e.to_string())
+fn from_hal_error<E: embedded_hal::spi::Error>(e: E) -> spi_bindings::Error {
+    match e.kind() {
+        HalErrorKind::Overrun => spi_bindings::Error::Overrun,
+        HalErrorKind::ModeFault => spi_bindings::Error::ModeFault,
+        HalErrorKind::FrameFormat => spi_bindings::Error::FrameFormat,
+        HalErrorKind::ChipSelectFault => spi_bindings::Error::ChipSelectFault,
+        HalErrorKind::Other => spi_bindings::Error::Other("Other HAL error".to_string()),
+        // Handle any variants that don't map directly to 'Other' with the debug string
+        _ => spi_bindings::Error::Other(format!("Unhandled HAL error: {:?}", e.kind())),
+    }
 }
 
 enum TransactionBuffer {
@@ -138,9 +148,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
 
         let mut buf = vec![0u8; len as usize];
 
-        spi.device
-            .read(&mut buf)
-            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
+        spi.device.read(&mut buf).map_err(from_hal_error)?;
 
         Ok(buf)
     }
@@ -155,9 +163,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
             .get_mut(&handle)
             .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
 
-        spi.device
-            .write(&data)
-            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
+        spi.device.write(&data).map_err(from_hal_error)?;
 
         Ok(())
     }
@@ -176,7 +182,7 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
 
         spi.device
             .transfer(&mut read_buf, &data)
-            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
+            .map_err(from_hal_error)?;
 
         Ok(read_buf)
     }
@@ -186,13 +192,21 @@ impl<'a, T: WasiSpiView> spi_bindings::HostSpiDevice for SpiImpl<'a, T> {
         handle: Resource<ActiveSpiDriver>,
         operations: Vec<spi_bindings::Operation>,
     ) -> Result<Vec<spi_bindings::OperationResult>, spi_bindings::Error> {
-        let spi = self.table().get_mut(&handle).map_err(to_spi_err)?;
+        let spi = self
+            .table()
+            .get_mut(&handle)
+            .map_err(|e| spi_bindings::Error::Other(e.to_string()))?;
+
         let mut buffers: Vec<_> = operations
             .into_iter()
             .map(TransactionBuffer::from_op)
             .collect();
+
         let mut hal_ops: Vec<_> = buffers.iter_mut().map(|b| b.as_hal_op()).collect();
-        spi.device.transaction(&mut hal_ops).map_err(to_spi_err)?;
+        spi.device
+            .transaction(&mut hal_ops)
+            .map_err(from_hal_error)?;
+
         Ok(buffers
             .into_iter()
             .map(TransactionBuffer::into_result)
