@@ -22,7 +22,7 @@ use spi::{SpiCtx, SpiView};
 
 // Update this path if you changed your combined component's wit world location
 wasmtime::component::bindgen!({
-    path: "../guest/wit",
+    path: "../temp-display-app/wit",
     world: "app", // Replace with your new combined world name (e.g., "app")
 });
 

@@ -3,6 +3,9 @@ name = "temp-display-app"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 wit-bindgen = "0.48.1"
 embedded-graphics = "0.8.1"
