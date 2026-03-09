@@ -3,6 +3,11 @@ name = "pico2-quick"
 version = "0.2.0"
 edition = "2024"
 
+[build-dependencies]
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+quote = "1.0"
+
 [dependencies]
 embassy-executor = { version = "0.9", features = [
   "arch-cortex-m",

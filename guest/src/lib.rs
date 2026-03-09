@@ -28,10 +28,10 @@ impl Guest for MainApp {
     fn run() {
         log("Starting unified Temp Display Component!");
 
-        let mut display = OledDisplay::new("spi1");
+        let mut display = OledDisplay::new("screen");
         display.on();
 
-        let sensor = Bme280::new("spi0");
+        let sensor = Bme280::new("sensor");
         let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 
         loop {

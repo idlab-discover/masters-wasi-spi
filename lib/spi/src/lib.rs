@@ -1,6 +1,7 @@
 #![no_std]
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -8,8 +9,7 @@ use core::marker::PhantomData;
 
 use embassy_rp::gpio::Output;
 use embassy_rp::peripherals::{SPI0, SPI1};
-use embassy_rp::spi::{Blocking, Spi};
-use embassy_rp::spi::{Config as RpSpiConfig, Phase, Polarity};
+use embassy_rp::spi::{Blocking, Config as RpSpiConfig, Phase, Polarity, Spi};
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 
 wasmtime::component::bindgen!({
@@ -27,13 +27,12 @@ pub struct ActiveSpiDriver {
 pub struct SpiCtx {
     pub table: ResourceTable,
 
-    // SPI0 Hardware (BME280)
-    pub spi0: Spi<'static, SPI0, Blocking>,
-    pub cs0: Output<'static>,
+    // Maps policy names (e.g., "sensor") to an internal hardware ID (0 for SPI0, 1 for SPI1)
+    pub device_map: BTreeMap<String, u8>,
 
-    // SPI1 Hardware (OLED)
-    pub spi1: Spi<'static, SPI1, Blocking>,
-    pub cs1: Output<'static>,
+    // Hardware is wrapped in Option so it can be safely omitted if not defined in policy.toml
+    pub spi0: Option<(Spi<'static, SPI0, Blocking>, Output<'static>)>,
+    pub spi1: Option<(Spi<'static, SPI1, Blocking>, Output<'static>)>,
 }
 
 pub trait SpiView {
@@ -46,31 +45,27 @@ pub struct SpiImpl<'a, T> {
 
 impl<'a, T: SpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
     fn get_device_names(&mut self) -> Vec<String> {
-        vec!["spi0".to_string(), "spi1".to_string()]
+        // Only return the names explicitly mapped in the policy.toml
+        self.host.spi_ctx().device_map.keys().cloned().collect()
     }
 
     fn open_device(
         &mut self,
         name: String,
     ) -> Result<Resource<ActiveSpiDriver>, wasi::spi::spi::Error> {
-        if name == "spi0" {
+        // Strict lookup: if it's not in the map, the guest cannot open it
+        if let Some(&id) = self.host.spi_ctx().device_map.get(&name) {
             let handle = self
                 .host
                 .spi_ctx()
                 .table
-                .push(ActiveSpiDriver { id: 0 })
-                .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
-            Ok(handle)
-        } else if name == "spi1" {
-            let handle = self
-                .host
-                .spi_ctx()
-                .table
-                .push(ActiveSpiDriver { id: 1 })
+                .push(ActiveSpiDriver { id })
                 .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
             Ok(handle)
         } else {
-            Err(wasi::spi::spi::Error::Other("Device not found".to_string()))
+            Err(wasi::spi::spi::Error::Other(
+                "Device not found or not mapped in policy".to_string(),
+            ))
         }
     }
 }
@@ -81,7 +76,6 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         handle: Resource<ActiveSpiDriver>,
         config: wasi::spi::spi::Config,
     ) -> Result<(), wasi::spi::spi::Error> {
-        // 1. Get the driver ID from the resource table
         let driver = self
             .host
             .spi_ctx()
@@ -89,11 +83,10 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
             .get(&handle)
             .map_err(|_| wasi::spi::spi::Error::Other("Invalid Handle".to_string()))?;
 
-        // 2. Create a new Embassy SPI Config
+        // 1. Setup the Embassy SPI configuration
         let mut rp_config = RpSpiConfig::default();
         rp_config.frequency = config.frequency;
 
-        // 3. Map WASI Mode to Embassy Polarity and Phase
         let (polarity, phase) = match config.mode {
             wasi::spi::spi::Mode::Mode0 => (Polarity::IdleLow, Phase::CaptureOnFirstTransition),
             wasi::spi::spi::Mode::Mode1 => (Polarity::IdleLow, Phase::CaptureOnSecondTransition),
@@ -106,17 +99,23 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
 
         if config.lsb_first {
             return Err(wasi::spi::spi::Error::Other(
-                "LSB-first not supported natively by host".to_string(),
+                "LSB-first natively unsupported by host".to_string(),
             ));
         }
 
-        // 4. Apply the configuration to the correct hardware block
+        // 2. Apply it directly to the targeted physical SPI block
         match driver.id {
             0 => {
-                self.host.spi_ctx().spi0.set_config(&rp_config);
+                let (spi, _) = self.host.spi_ctx().spi0.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI0 not enabled in policy".to_string())
+                })?;
+                spi.set_config(&rp_config);
             }
             1 => {
-                self.host.spi_ctx().spi1.set_config(&rp_config);
+                let (spi, _) = self.host.spi_ctx().spi1.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI1 not enabled in policy".to_string())
+                })?;
+                spi.set_config(&rp_config);
             }
             _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
         }
@@ -139,15 +138,21 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
 
         match driver.id {
             0 => {
-                self.host.spi_ctx().cs0.set_low();
-                let res = self.host.spi_ctx().spi0.blocking_read(&mut buf);
-                self.host.spi_ctx().cs0.set_high();
+                let (spi, cs) = self.host.spi_ctx().spi0.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI0 not enabled in policy".to_string())
+                })?;
+                cs.set_low();
+                let res = spi.blocking_read(&mut buf);
+                cs.set_high();
                 res.map_err(|_| wasi::spi::spi::Error::Other("SPI0 read failed".to_string()))?;
             }
             1 => {
-                self.host.spi_ctx().cs1.set_low();
-                let res = self.host.spi_ctx().spi1.blocking_read(&mut buf);
-                self.host.spi_ctx().cs1.set_high();
+                let (spi, cs) = self.host.spi_ctx().spi1.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI1 not enabled in policy".to_string())
+                })?;
+                cs.set_low();
+                let res = spi.blocking_read(&mut buf);
+                cs.set_high();
                 res.map_err(|_| wasi::spi::spi::Error::Other("SPI1 read failed".to_string()))?;
             }
             _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
@@ -169,15 +174,21 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
 
         match driver.id {
             0 => {
-                self.host.spi_ctx().cs0.set_low();
-                let res = self.host.spi_ctx().spi0.blocking_write(&data);
-                self.host.spi_ctx().cs0.set_high();
+                let (spi, cs) = self.host.spi_ctx().spi0.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI0 not enabled in policy".to_string())
+                })?;
+                cs.set_low();
+                let res = spi.blocking_write(&data);
+                cs.set_high();
                 res.map_err(|_| wasi::spi::spi::Error::Other("SPI0 write failed".to_string()))?;
             }
             1 => {
-                self.host.spi_ctx().cs1.set_low();
-                let res = self.host.spi_ctx().spi1.blocking_write(&data);
-                self.host.spi_ctx().cs1.set_high();
+                let (spi, cs) = self.host.spi_ctx().spi1.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI1 not enabled in policy".to_string())
+                })?;
+                cs.set_low();
+                let res = spi.blocking_write(&data);
+                cs.set_high();
                 res.map_err(|_| wasi::spi::spi::Error::Other("SPI1 write failed".to_string()))?;
             }
             _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
@@ -200,23 +211,21 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
 
         match driver.id {
             0 => {
-                self.host.spi_ctx().cs0.set_low();
-                let res = self
-                    .host
-                    .spi_ctx()
-                    .spi0
-                    .blocking_transfer(&mut read_buf, &data);
-                self.host.spi_ctx().cs0.set_high();
+                let (spi, cs) = self.host.spi_ctx().spi0.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI0 not enabled in policy".to_string())
+                })?;
+                cs.set_low();
+                let res = spi.blocking_transfer(&mut read_buf, &data);
+                cs.set_high();
                 res.map_err(|_| wasi::spi::spi::Error::Other("SPI0 transfer failed".to_string()))?;
             }
             1 => {
-                self.host.spi_ctx().cs1.set_low();
-                let res = self
-                    .host
-                    .spi_ctx()
-                    .spi1
-                    .blocking_transfer(&mut read_buf, &data);
-                self.host.spi_ctx().cs1.set_high();
+                let (spi, cs) = self.host.spi_ctx().spi1.as_mut().ok_or_else(|| {
+                    wasi::spi::spi::Error::Other("SPI1 not enabled in policy".to_string())
+                })?;
+                cs.set_low();
+                let res = spi.blocking_transfer(&mut read_buf, &data);
+                cs.set_high();
                 res.map_err(|_| wasi::spi::spi::Error::Other("SPI1 transfer failed".to_string()))?;
             }
             _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
@@ -229,7 +238,6 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         _handle: Resource<ActiveSpiDriver>,
         _operations: Vec<wasi::spi::spi::Operation>,
     ) -> Result<Vec<wasi::spi::spi::OperationResult>, wasi::spi::spi::Error> {
-        // You can duplicate the matching pattern above for transaction() as well if you use it in your code!
         Err(wasi::spi::spi::Error::Other(
             "Transaction unsupported".to_string(),
         ))
