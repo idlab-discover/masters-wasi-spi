@@ -8,7 +8,7 @@ fn main() -> anyhow::Result<()> {
 
     let input_path = match mode.as_str() {
         "p2" => Path::new("target/wasm32-wasip2/release/guest.wasm"),
-        "unknown" => Path::new("pacman.wasm"),
+        "unknown" => Path::new("guest.component.wasm"),
         _ => anyhow::bail!("Invalid mode '{}'. Use: p2 | unknown", mode),
     };
 

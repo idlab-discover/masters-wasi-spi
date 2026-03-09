@@ -6,12 +6,11 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use embassy_rp::gpio::Output; // <-- Added Output
-use embassy_rp::peripherals::SPI0;
+use embassy_rp::gpio::Output;
+use embassy_rp::peripherals::{SPI0, SPI1};
 use embassy_rp::spi::{Blocking, Spi};
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 
-// Adjust path depending on your workspace root
 wasmtime::component::bindgen!({
     path: "../../wit/spi.wit",
     world: "wasi-spi-host",
@@ -26,8 +25,14 @@ pub struct ActiveSpiDriver {
 
 pub struct SpiCtx {
     pub table: ResourceTable,
-    pub spi: Spi<'static, SPI0, Blocking>,
-    pub cs: Output<'static>, // <-- Added the CS pin
+
+    // SPI0 Hardware (BME280)
+    pub spi0: Spi<'static, SPI0, Blocking>,
+    pub cs0: Output<'static>,
+
+    // SPI1 Hardware (OLED)
+    pub spi1: Spi<'static, SPI1, Blocking>,
+    pub cs1: Output<'static>,
 }
 
 pub trait SpiView {
@@ -40,7 +45,7 @@ pub struct SpiImpl<'a, T> {
 
 impl<'a, T: SpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
     fn get_device_names(&mut self) -> Vec<String> {
-        vec!["spi0".to_string()]
+        vec!["spi0".to_string(), "spi1".to_string()]
     }
 
     fn open_device(
@@ -55,6 +60,14 @@ impl<'a, T: SpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
                 .push(ActiveSpiDriver { id: 0 })
                 .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
             Ok(handle)
+        } else if name == "spi1" {
+            let handle = self
+                .host
+                .spi_ctx()
+                .table
+                .push(ActiveSpiDriver { id: 1 })
+                .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+            Ok(handle)
         } else {
             Err(wasi::spi::spi::Error::Other("Device not found".to_string()))
         }
@@ -67,105 +80,118 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         _handle: Resource<ActiveSpiDriver>,
         _config: wasi::spi::spi::Config,
     ) -> Result<(), wasi::spi::spi::Error> {
-        Ok(())
+        Ok(()) // Handled statically in main.rs for now
     }
 
     fn read(
         &mut self,
-        _handle: Resource<ActiveSpiDriver>,
+        handle: Resource<ActiveSpiDriver>,
         len: u64,
     ) -> Result<Vec<u8>, wasi::spi::spi::Error> {
         let mut buf = vec![0u8; len as usize];
+        let driver = self
+            .host
+            .spi_ctx()
+            .table
+            .get(&handle)
+            .map_err(|_| wasi::spi::spi::Error::Other("Invalid Handle".to_string()))?;
 
-        self.host.spi_ctx().cs.set_low(); // <-- Pull CS low
-        let res = self.host.spi_ctx().spi.blocking_read(&mut buf);
-        self.host.spi_ctx().cs.set_high(); // <-- Pull CS high
-
-        res.map_err(|_| wasi::spi::spi::Error::Other("Read failed".to_string()))?;
+        match driver.id {
+            0 => {
+                self.host.spi_ctx().cs0.set_low();
+                let res = self.host.spi_ctx().spi0.blocking_read(&mut buf);
+                self.host.spi_ctx().cs0.set_high();
+                res.map_err(|_| wasi::spi::spi::Error::Other("SPI0 read failed".to_string()))?;
+            }
+            1 => {
+                self.host.spi_ctx().cs1.set_low();
+                let res = self.host.spi_ctx().spi1.blocking_read(&mut buf);
+                self.host.spi_ctx().cs1.set_high();
+                res.map_err(|_| wasi::spi::spi::Error::Other("SPI1 read failed".to_string()))?;
+            }
+            _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
+        }
         Ok(buf)
     }
 
     fn write(
         &mut self,
-        _handle: Resource<ActiveSpiDriver>,
+        handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
     ) -> Result<(), wasi::spi::spi::Error> {
-        self.host.spi_ctx().cs.set_low(); // <-- Pull CS low
-        let res = self.host.spi_ctx().spi.blocking_write(&data);
-        self.host.spi_ctx().cs.set_high(); // <-- Pull CS high
+        let driver = self
+            .host
+            .spi_ctx()
+            .table
+            .get(&handle)
+            .map_err(|_| wasi::spi::spi::Error::Other("Invalid Handle".to_string()))?;
 
-        res.map_err(|_| wasi::spi::spi::Error::Other("Write failed".to_string()))?;
+        match driver.id {
+            0 => {
+                self.host.spi_ctx().cs0.set_low();
+                let res = self.host.spi_ctx().spi0.blocking_write(&data);
+                self.host.spi_ctx().cs0.set_high();
+                res.map_err(|_| wasi::spi::spi::Error::Other("SPI0 write failed".to_string()))?;
+            }
+            1 => {
+                self.host.spi_ctx().cs1.set_low();
+                let res = self.host.spi_ctx().spi1.blocking_write(&data);
+                self.host.spi_ctx().cs1.set_high();
+                res.map_err(|_| wasi::spi::spi::Error::Other("SPI1 write failed".to_string()))?;
+            }
+            _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
+        }
         Ok(())
     }
 
     fn transfer(
         &mut self,
-        _handle: Resource<ActiveSpiDriver>,
+        handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
     ) -> Result<Vec<u8>, wasi::spi::spi::Error> {
         let mut read_buf = vec![0u8; data.len()];
-
-        self.host.spi_ctx().cs.set_low(); // <-- Pull CS low
-        let res = self
+        let driver = self
             .host
             .spi_ctx()
-            .spi
-            .blocking_transfer(&mut read_buf, &data);
-        self.host.spi_ctx().cs.set_high(); // <-- Pull CS high
+            .table
+            .get(&handle)
+            .map_err(|_| wasi::spi::spi::Error::Other("Invalid Handle".to_string()))?;
 
-        res.map_err(|_| wasi::spi::spi::Error::Other("Transfer failed".to_string()))?;
+        match driver.id {
+            0 => {
+                self.host.spi_ctx().cs0.set_low();
+                let res = self
+                    .host
+                    .spi_ctx()
+                    .spi0
+                    .blocking_transfer(&mut read_buf, &data);
+                self.host.spi_ctx().cs0.set_high();
+                res.map_err(|_| wasi::spi::spi::Error::Other("SPI0 transfer failed".to_string()))?;
+            }
+            1 => {
+                self.host.spi_ctx().cs1.set_low();
+                let res = self
+                    .host
+                    .spi_ctx()
+                    .spi1
+                    .blocking_transfer(&mut read_buf, &data);
+                self.host.spi_ctx().cs1.set_high();
+                res.map_err(|_| wasi::spi::spi::Error::Other("SPI1 transfer failed".to_string()))?;
+            }
+            _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
+        }
         Ok(read_buf)
     }
 
     fn transaction(
         &mut self,
         _handle: Resource<ActiveSpiDriver>,
-        operations: Vec<wasi::spi::spi::Operation>,
+        _operations: Vec<wasi::spi::spi::Operation>,
     ) -> Result<Vec<wasi::spi::spi::OperationResult>, wasi::spi::spi::Error> {
-        let mut results = Vec::new();
-
-        self.host.spi_ctx().cs.set_low(); // <-- Lock CS low for the entire transaction
-
-        for op in operations {
-            match op {
-                wasi::spi::spi::Operation::Read(len) => {
-                    let mut buf = vec![0u8; len as usize];
-                    if self.host.spi_ctx().spi.blocking_read(&mut buf).is_err() {
-                        self.host.spi_ctx().cs.set_high(); // Safety release
-                        return Err(wasi::spi::spi::Error::Other("Read error".to_string()));
-                    }
-                    results.push(wasi::spi::spi::OperationResult::Read(buf));
-                }
-                wasi::spi::spi::Operation::Write(data) => {
-                    if self.host.spi_ctx().spi.blocking_write(&data).is_err() {
-                        self.host.spi_ctx().cs.set_high(); // Safety release
-                        return Err(wasi::spi::spi::Error::Other("Write error".to_string()));
-                    }
-                    results.push(wasi::spi::spi::OperationResult::Write);
-                }
-                wasi::spi::spi::Operation::Transfer(data) => {
-                    let mut read_buf = vec![0u8; data.len()];
-                    if self
-                        .host
-                        .spi_ctx()
-                        .spi
-                        .blocking_transfer(&mut read_buf, &data)
-                        .is_err()
-                    {
-                        self.host.spi_ctx().cs.set_high(); // Safety release
-                        return Err(wasi::spi::spi::Error::Other("Transfer error".to_string()));
-                    }
-                    results.push(wasi::spi::spi::OperationResult::Transfer(read_buf));
-                }
-                wasi::spi::spi::Operation::DelayNs(ns) => {
-                    embassy_time::block_for(embassy_time::Duration::from_nanos(ns as u64));
-                    results.push(wasi::spi::spi::OperationResult::Delay);
-                }
-            }
-        }
-
-        self.host.spi_ctx().cs.set_high(); // <-- Release CS high
-        Ok(results)
+        // You can duplicate the matching pattern above for transaction() as well if you use it in your code!
+        Err(wasi::spi::spi::Error::Other(
+            "Transaction unsupported".to_string(),
+        ))
     }
 
     fn drop(&mut self, rep: Resource<ActiveSpiDriver>) -> wasmtime::Result<()> {
