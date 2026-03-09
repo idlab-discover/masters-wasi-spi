@@ -77,13 +77,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 
 [[package]]
-name = "ball-screensaver"
-version = "0.1.0"
-dependencies = [
- "wit-bindgen 0.48.1",
-]
-
-[[package]]
 name = "bare-metal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1490,13 +1483,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
-name = "pacman"
-version = "0.1.0"
-dependencies = [
- "wit-bindgen 0.48.1",
-]
-
-[[package]]
 name = "panic-probe"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1654,13 +1640,6 @@ name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
-
-[[package]]
-name = "pmod-oled-driver"
-version = "0.1.0"
-dependencies = [
- "wit-bindgen 0.48.1",
-]
 
 [[package]]
 name = "postcard"
@@ -2176,13 +2155,6 @@ name = "target-lexicon"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1dd07eb858a2067e2f3c7155d54e929265c264e6f37efe3ee7a8d1b5a1dd0ba"
-
-[[package]]
-name = "temperature-sensor"
-version = "0.1.0"
-dependencies = [
- "wit-bindgen 0.48.1",
-]
 
 [[package]]
 name = "tempfile"

@@ -9,6 +9,7 @@ use core::marker::PhantomData;
 use embassy_rp::gpio::Output;
 use embassy_rp::peripherals::{SPI0, SPI1};
 use embassy_rp::spi::{Blocking, Spi};
+use embassy_rp::spi::{Config as RpSpiConfig, Phase, Polarity};
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 
 wasmtime::component::bindgen!({
@@ -77,10 +78,50 @@ impl<'a, T: SpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
 impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
     fn configure(
         &mut self,
-        _handle: Resource<ActiveSpiDriver>,
-        _config: wasi::spi::spi::Config,
+        handle: Resource<ActiveSpiDriver>,
+        config: wasi::spi::spi::Config,
     ) -> Result<(), wasi::spi::spi::Error> {
-        Ok(()) // Handled statically in main.rs for now
+        // 1. Get the driver ID from the resource table
+        let driver = self
+            .host
+            .spi_ctx()
+            .table
+            .get(&handle)
+            .map_err(|_| wasi::spi::spi::Error::Other("Invalid Handle".to_string()))?;
+
+        // 2. Create a new Embassy SPI Config
+        let mut rp_config = RpSpiConfig::default();
+        rp_config.frequency = config.frequency;
+
+        // 3. Map WASI Mode to Embassy Polarity and Phase
+        let (polarity, phase) = match config.mode {
+            wasi::spi::spi::Mode::Mode0 => (Polarity::IdleLow, Phase::CaptureOnFirstTransition),
+            wasi::spi::spi::Mode::Mode1 => (Polarity::IdleLow, Phase::CaptureOnSecondTransition),
+            wasi::spi::spi::Mode::Mode2 => (Polarity::IdleHigh, Phase::CaptureOnFirstTransition),
+            wasi::spi::spi::Mode::Mode3 => (Polarity::IdleHigh, Phase::CaptureOnSecondTransition),
+        };
+
+        rp_config.polarity = polarity;
+        rp_config.phase = phase;
+
+        if config.lsb_first {
+            return Err(wasi::spi::spi::Error::Other(
+                "LSB-first not supported natively by host".to_string(),
+            ));
+        }
+
+        // 4. Apply the configuration to the correct hardware block
+        match driver.id {
+            0 => {
+                self.host.spi_ctx().spi0.set_config(&rp_config);
+            }
+            1 => {
+                self.host.spi_ctx().spi1.set_config(&rp_config);
+            }
+            _ => return Err(wasi::spi::spi::Error::Other("Unknown SPI ID".to_string())),
+        }
+
+        Ok(())
     }
 
     fn read(

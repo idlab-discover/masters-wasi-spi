@@ -2,15 +2,13 @@
 resolver = "2"
 
 members = [
-    "compiler",
-    "pico2-quick",
-    "guests/oled-screen/pmod-oled-driver",
-    "guests/oled-screen/pacman",
-    "guests/oled-screen/ball-screensaver", 
-    "lib/spi", 
-    "lib/delay", 
-    "lib/gpio"
-, "guests/temperature-sensor", "guest"]
+  "compiler",
+  "pico2-quick",
+  "lib/spi", 
+  "lib/delay", 
+  "lib/gpio",
+  "guest"
+]
 
 # 1. The Default Release Profile 
 # This applies to the Wasm guests (pacman, pmod-oled-driver).

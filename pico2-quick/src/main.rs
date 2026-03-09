@@ -104,24 +104,16 @@ async fn main(_spawner: Spawner) {
     // ==========================================
     // --- 1. Initialize SPI0 (BME280 Sensor) ---
     // ==========================================
-    let mut spi0_config = RpSpiConfig::default();
-    spi0_config.frequency = 1_000_000;
-    spi0_config.polarity = Polarity::IdleLow;
-    spi0_config.phase = Phase::CaptureOnFirstTransition;
-
-    let spi0_driver = Spi::new_blocking(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_16, spi0_config);
+    let spi0_driver =
+        Spi::new_blocking(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_16, RpSpiConfig::default());
     let cs0_pin = Output::new(p.PIN_17, Level::High);
 
     // ==========================================
     // --- 2. Initialize SPI1 (OLED Screen) -----
     // ==========================================
-    let mut spi1_config = RpSpiConfig::default();
-    spi1_config.frequency = 8_000_000;
-    spi1_config.polarity = Polarity::IdleLow;
-    spi1_config.phase = Phase::CaptureOnFirstTransition;
-
     // PIN_12 is unused by OLED but mapped to satisfy embassy's MISO requirement
-    let spi1_driver = Spi::new_blocking(p.SPI1, p.PIN_10, p.PIN_11, p.PIN_12, spi1_config);
+    let spi1_driver =
+        Spi::new_blocking(p.SPI1, p.PIN_10, p.PIN_11, p.PIN_12, RpSpiConfig::default());
     let cs1_pin = Output::new(p.PIN_13, Level::High);
 
     // ==========================================
