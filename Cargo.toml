@@ -10,7 +10,7 @@ members = [
     "lib/spi", 
     "lib/delay", 
     "lib/gpio"
-, "guests/temperature-sensor", "temp-display-app"]
+, "guests/temperature-sensor", "guest"]
 
 # 1. The Default Release Profile 
 # This applies to the Wasm guests (pacman, pmod-oled-driver).

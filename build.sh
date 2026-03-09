@@ -4,14 +4,14 @@ set -e
 echo "========================================"
 echo "🛠  Building guest crate (wasm32 target)"
 echo "========================================"
-cargo build -p temp-display-app --target wasm32-unknown-unknown --release
+cargo build -p guest --target wasm32-unknown-unknown --release
 
 echo
 echo "========================================"
 echo "📦 Creating WASM component"
 echo "========================================"
 wasm-tools component new \
-  target/wasm32-unknown-unknown/release/temp_display_app.wasm \
+  target/wasm32-unknown-unknown/release/guest.wasm \
   -o guest.component.wasm
 
 echo

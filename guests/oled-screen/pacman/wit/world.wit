@@ -1,8 +1,0 @@
-package my:pacman;
-
-world app {
-    import my:pmod-oled-driver/graphics;
-    import my:debug/logging;
-
-    export run: func();
-}

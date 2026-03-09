@@ -1,5 +1,5 @@
 [package]
-name = "pacman"
+name = "guest"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,8 +8,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wit-bindgen = "0.48.1"
-
-
-[package.metadata.component]
-package = "my:pacman"
-
+embedded-graphics = "0.8.1"
