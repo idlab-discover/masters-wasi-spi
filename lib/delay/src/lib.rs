@@ -10,7 +10,7 @@ wasmtime::component::bindgen!({
 });
 
 pub struct DelayCtx {
-    // Empty for now, but provides the pattern for future extensions
+    pub delay: alloc::boxed::Box<dyn embedded_hal::delay::DelayNs + Send + 'static>,
 }
 
 pub trait DelayView {
@@ -23,7 +23,7 @@ pub struct DelayImpl<'a, T> {
 
 impl<'a, T: DelayView> wasi::delay::delay::Host for DelayImpl<'a, T> {
     fn delay_ms(&mut self, ms: u32) {
-        embassy_time::block_for(embassy_time::Duration::from_millis(ms as u64));
+        self.host.delay_ctx().delay.delay_ms(ms);
     }
 }
 

@@ -1,0 +1,15 @@
+[spi.sensor]
+path = "/dev/spidev0.0"
+frequency = 1_000_000
+mode = 0
+
+[spi.screen]
+path = "/dev/spidev0.1"
+frequency = 8_000_000
+mode = 0
+
+[gpio]
+DC = { pin = 17, initial = "Low" }
+RES = { pin = 27, initial = "High" }
+VBATC = { pin = 22, initial = "High" }
+VDDC = { pin = 23, initial = "High" }

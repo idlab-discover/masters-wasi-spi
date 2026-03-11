@@ -5,4 +5,4 @@ edition = "2024"
 
 [dependencies]
 wasmtime = { version = "41.0.1", default-features = false, features = ["component-model"] }
-embassy-time = { version = "0.5.0" }
+embedded-hal = "1.0.0"

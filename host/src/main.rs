@@ -5,11 +5,11 @@ extern crate alloc;
 
 use defmt::info;
 use embassy_executor::Spawner;
+use embassy_time::Delay;
 use embedded_alloc::Heap;
-use {defmt_rtt as _, panic_probe as _};
-
 use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
 use wasmtime::{Config, Engine, Store};
+use {defmt_rtt as _, panic_probe as _};
 
 // Import contexts and views
 use delay::{DelayCtx, DelayView};
@@ -112,7 +112,9 @@ async fn main(_spawner: Spawner) {
             hardware: spi_hardware, // Only pass our new unified vector!
         },
         gpio_ctx: GpioCtx { pins: gpio_map },
-        delay_ctx: DelayCtx {},
+        delay_ctx: DelayCtx {
+            delay: alloc::boxed::Box::new(Delay),
+        },
     };
 
     let mut store = Store::new(&engine, host_state);

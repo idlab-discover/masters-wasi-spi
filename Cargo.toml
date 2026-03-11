@@ -8,7 +8,7 @@ members = [
   "lib/delay", 
   "lib/gpio",
   "guest"
-]
+, "linux-host"]
 
 [profile.release]
 opt-level = "z"
