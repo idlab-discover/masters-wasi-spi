@@ -4,6 +4,8 @@ sck = 18
 mosi = 19
 miso = 16
 cs = 17
+frequency = 1_000_000
+mode = 0
 
 [spi.screen]
 block = "SPI1"
@@ -11,6 +13,8 @@ sck = 10
 mosi = 11
 miso = 12
 cs = 13
+frequency = 8_000_000
+mode = 0
 
 [gpio]
 DC = { pin = 2, initial = "Low" }

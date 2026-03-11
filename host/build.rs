@@ -28,6 +28,8 @@ struct SpiConfig {
     mosi: u8,
     miso: u8,
     cs: u8,
+    frequency: u32,
+    mode: u8,
 }
 
 #[derive(Deserialize)]
@@ -64,11 +66,28 @@ fn main() {
         let spi_ident = format_ident!("spi{}", block_num);
         let cs_ident = format_ident!("cs{}", block_num);
 
+        // 2. Map the TOML configuration directly
+        let freq = config.frequency;
+        let (pol, pha) = match config.mode {
+            0 => (quote!(embassy_rp::spi::Polarity::IdleLow), quote!(embassy_rp::spi::Phase::CaptureOnFirstTransition)),
+            1 => (quote!(embassy_rp::spi::Polarity::IdleLow), quote!(embassy_rp::spi::Phase::CaptureOnSecondTransition)),
+            2 => (quote!(embassy_rp::spi::Polarity::IdleHigh), quote!(embassy_rp::spi::Phase::CaptureOnFirstTransition)),
+            3 => (quote!(embassy_rp::spi::Polarity::IdleHigh), quote!(embassy_rp::spi::Phase::CaptureOnSecondTransition)),
+            _ => panic!("CRITICAL: SPI mode must be 0, 1, 2, or 3"),
+        };
+
         spi_initializations.extend(quote! {
+            // 3. Inject the configuration at startup!
+            let mut rp_config = embassy_rp::spi::Config::default();
+            rp_config.frequency = #freq;
+            rp_config.polarity = #pol;
+            rp_config.phase = #pha;
+
             let #spi_ident = embassy_rp::spi::Spi::new_blocking(
-                $p.#block_ident, $p.#sck_pin, $p.#mosi_pin, $p.#miso_pin, embassy_rp::spi::Config::default()
+                $p.#block_ident, $p.#sck_pin, $p.#mosi_pin, $p.#miso_pin, rp_config
             );
             let #cs_ident = embassy_rp::gpio::Output::new($p.#cs_pin, embassy_rp::gpio::Level::High);
+            
             let device = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(#spi_ident, #cs_ident).unwrap();
             spi_hardware.push((alloc::string::String::from(#name), alloc::boxed::Box::new(device)));
         });

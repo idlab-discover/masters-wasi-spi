@@ -2133,10 +2133,7 @@ dependencies = [
 name = "spi"
 version = "0.1.0"
 dependencies = [
- "embassy-rp",
- "embassy-time",
  "embedded-hal 1.0.0",
- "embedded-hal-bus",
  "wasmtime",
 ]
 
