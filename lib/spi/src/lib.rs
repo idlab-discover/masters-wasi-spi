@@ -6,6 +6,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use embedded_hal::spi::{Operation as HalOperation, SpiDevice};
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 
 wasmtime::component::bindgen!({
@@ -21,45 +22,91 @@ pub struct ActiveSpiDriver {
 }
 
 // ------------------------------------------------------------------
-// 1. The Agnostic Trait (No configure!)
+// 1. The Agnostic Trait (Error-Erased)
 // ------------------------------------------------------------------
 
-pub trait SpiHardware {
-    fn read_data(&mut self, buf: &mut [u8]) -> Result<(), spi::Error>;
-    fn write_data(&mut self, data: &[u8]) -> Result<(), spi::Error>;
-    fn transfer_data(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error>;
+pub trait ErasedSpiDevice {
+    fn read(&mut self, buf: &mut [u8]) -> Result<(), spi::Error>;
+    fn write(&mut self, data: &[u8]) -> Result<(), spi::Error>;
+    fn transfer(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error>;
+    fn transaction(&mut self, operations: &mut [HalOperation<'_, u8>]) -> Result<(), spi::Error>;
 }
 
 // ------------------------------------------------------------------
 // 2. The Universal `embedded-hal` Implementation
 // ------------------------------------------------------------------
-use embedded_hal::spi::SpiDevice;
 
-// This implements SpiHardware for ANY standard SPI Device!
-impl<T: SpiDevice> SpiHardware for T {
-    fn read_data(&mut self, buf: &mut [u8]) -> Result<(), spi::Error> {
-        self.read(buf)
-            .map_err(|_| spi::Error::Other("Read failed".into()))
+// By mapping all of these directly, we piggyback on whatever specific
+// optimizations the underlying HAL device has implemented for them.
+impl<T: SpiDevice<u8>> ErasedSpiDevice for T {
+    fn read(&mut self, buf: &mut [u8]) -> Result<(), spi::Error> {
+        SpiDevice::read(self, buf).map_err(|_| spi::Error::Other("Read failed".into()))
     }
 
-    fn write_data(&mut self, data: &[u8]) -> Result<(), spi::Error> {
-        self.write(data)
-            .map_err(|_| spi::Error::Other("Write failed".into()))
+    fn write(&mut self, data: &[u8]) -> Result<(), spi::Error> {
+        SpiDevice::write(self, data).map_err(|_| spi::Error::Other("Write failed".into()))
     }
 
-    fn transfer_data(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error> {
-        self.transfer(rx, tx)
-            .map_err(|_| spi::Error::Other("Transfer failed".into()))
+    fn transfer(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error> {
+        SpiDevice::transfer(self, rx, tx).map_err(|_| spi::Error::Other("Transfer failed".into()))
+    }
+
+    fn transaction(&mut self, operations: &mut [HalOperation<'_, u8>]) -> Result<(), spi::Error> {
+        SpiDevice::transaction(self, operations)
+            .map_err(|_| spi::Error::Other("Transaction failed".into()))
     }
 }
 
 // ------------------------------------------------------------------
-// 3. Wasmtime Host Context & Implementations
+// 3. Transaction Buffer Helpers
+// ------------------------------------------------------------------
+
+enum TransactionBuffer {
+    Read(Vec<u8>),
+    Write(Vec<u8>),
+    Transfer { read: Vec<u8>, write: Vec<u8> },
+    Delay(u32),
+}
+
+impl TransactionBuffer {
+    fn from_op(op: spi::Operation) -> Self {
+        match op {
+            spi::Operation::Read(len) => Self::Read(vec![0; len as usize]),
+            spi::Operation::Write(data) => Self::Write(data),
+            spi::Operation::Transfer(data) => Self::Transfer {
+                read: vec![0; data.len()],
+                write: data,
+            },
+            spi::Operation::DelayNs(ns) => Self::Delay(ns),
+        }
+    }
+
+    fn as_hal_op(&mut self) -> HalOperation<'_, u8> {
+        match self {
+            Self::Read(buf) => HalOperation::Read(buf),
+            Self::Write(buf) => HalOperation::Write(buf),
+            Self::Transfer { read, write } => HalOperation::Transfer(read, write),
+            Self::Delay(ns) => HalOperation::DelayNs(*ns),
+        }
+    }
+
+    fn into_result(self) -> spi::OperationResult {
+        match self {
+            Self::Read(buf) => spi::OperationResult::Read(buf),
+            Self::Write(_) => spi::OperationResult::Write, // Write doesn't return data
+            Self::Transfer { read, .. } => spi::OperationResult::Transfer(read),
+            Self::Delay(_) => spi::OperationResult::Delay,
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// 4. Wasmtime Host Context & Implementations
 // ------------------------------------------------------------------
 
 pub struct SpiCtx {
     pub table: ResourceTable,
-    pub hardware: Vec<(String, Box<dyn SpiHardware + Send + 'static>)>,
+    pub hardware: Vec<(String, Box<dyn ErasedSpiDevice + Send + 'static>)>,
 }
 
 pub trait SpiView {
@@ -74,7 +121,7 @@ impl<'a, T: SpiView> SpiImpl<'a, T> {
     fn get_hw(
         &mut self,
         handle: &Resource<ActiveSpiDriver>,
-    ) -> Result<&mut Box<dyn SpiHardware + Send + 'static>, spi::Error> {
+    ) -> Result<&mut Box<dyn ErasedSpiDevice + Send + 'static>, spi::Error> {
         let id = self
             .host
             .spi_ctx()
@@ -111,7 +158,7 @@ impl<'a, T: SpiView> spi::Host for SpiImpl<'a, T> {
 impl<'a, T: SpiView> spi::HostSpiDevice for SpiImpl<'a, T> {
     fn read(&mut self, handle: Resource<ActiveSpiDriver>, len: u64) -> Result<Vec<u8>, spi::Error> {
         let mut buf = vec![0u8; len as usize];
-        self.get_hw(&handle)?.read_data(&mut buf)?;
+        self.get_hw(&handle)?.read(&mut buf)?;
         Ok(buf)
     }
 
@@ -120,7 +167,7 @@ impl<'a, T: SpiView> spi::HostSpiDevice for SpiImpl<'a, T> {
         handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
     ) -> Result<(), spi::Error> {
-        self.get_hw(&handle)?.write_data(&data)
+        self.get_hw(&handle)?.write(&data)
     }
 
     fn transfer(
@@ -129,16 +176,33 @@ impl<'a, T: SpiView> spi::HostSpiDevice for SpiImpl<'a, T> {
         data: Vec<u8>,
     ) -> Result<Vec<u8>, spi::Error> {
         let mut rx = vec![0u8; data.len()];
-        self.get_hw(&handle)?.transfer_data(&mut rx, &data)?;
+        self.get_hw(&handle)?.transfer(&mut rx, &data)?;
         Ok(rx)
     }
 
     fn transaction(
         &mut self,
-        _: Resource<ActiveSpiDriver>,
-        _: Vec<spi::Operation>,
+        handle: Resource<ActiveSpiDriver>,
+        operations: Vec<spi::Operation>,
     ) -> Result<Vec<spi::OperationResult>, spi::Error> {
-        Err(spi::Error::Other("Unsupported".into()))
+        let hw = self.get_hw(&handle)?;
+
+        // Map WIT Operations -> Buffers -> HalOperations
+        let mut buffers: Vec<_> = operations
+            .into_iter()
+            .map(TransactionBuffer::from_op)
+            .collect();
+
+        let mut hal_ops: Vec<_> = buffers.iter_mut().map(|b| b.as_hal_op()).collect();
+
+        // Execute the single transaction call
+        hw.transaction(&mut hal_ops)?;
+
+        // Map Buffers -> WIT OperationResults
+        Ok(buffers
+            .into_iter()
+            .map(TransactionBuffer::into_result)
+            .collect())
     }
 
     fn drop(&mut self, rep: Resource<ActiveSpiDriver>) -> wasmtime::Result<()> {
@@ -148,9 +212,11 @@ impl<'a, T: SpiView> spi::HostSpiDevice for SpiImpl<'a, T> {
 }
 
 pub struct SpiBindingMarker<T>(PhantomData<T>);
+
 impl<T: SpiView + 'static> HasData for SpiBindingMarker<T> {
     type Data<'a> = SpiImpl<'a, T>;
 }
+
 pub fn add_to_linker<T: SpiView + 'static>(linker: &mut Linker<T>) -> wasmtime::Result<()> {
     spi::add_to_linker::<T, SpiBindingMarker<T>>(linker, |host| SpiImpl { host })
 }

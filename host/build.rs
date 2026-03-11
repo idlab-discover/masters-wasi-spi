@@ -52,7 +52,7 @@ fn main() {
         toml::from_str(&policy_str).expect("CRITICAL: Failed to parse policy.toml");
 
     let mut spi_initializations = quote! {
-        let mut spi_hardware: alloc::vec::Vec<(alloc::string::String, alloc::boxed::Box<dyn spi::SpiHardware + Send>)> = alloc::vec::Vec::new();
+        let mut spi_hardware: alloc::vec::Vec<(alloc::string::String, alloc::boxed::Box<dyn spi::ErasedSpiDevice + Send>)> = alloc::vec::Vec::new();
     };
 
     for (name, config) in policy.spi.into_iter().flatten() {
