@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use anyhow::Context; // Added for better error messages
+use anyhow::Context; // For helpful error messages
 use clap::Parser;
 use serde::Deserialize;
 use wasmtime::{
@@ -14,8 +14,9 @@ use delay::{DelayCtx, DelayView};
 use gpio::{GpioCtx, GpioView};
 use spi::{SpiCtx, SpiView};
 
-// Linux hardware implementations for embedded-hal
-use linux_embedded_hal::{Delay, SpidevDevice, SysfsPin};
+// Linux hardware implementations for embedded-hal (Modern CDEV approach)
+use linux_embedded_hal::gpio_cdev::{Chip, LineRequestFlags};
+use linux_embedded_hal::{CdevPin, Delay, SpidevDevice};
 use spidev::{SpiModeFlags, Spidev, SpidevOptions};
 
 wasmtime::component::bindgen!({
@@ -38,7 +39,7 @@ struct SpiPolicy {
 
 #[derive(Deserialize)]
 struct GpioPolicy {
-    pin: u64,
+    pin: u32, // Changed to u32 for the CDEV API
     initial: String,
 }
 
@@ -122,30 +123,36 @@ fn main() -> anyhow::Result<()> {
         spi_hardware.push((name, Box::new(spi_device)));
     }
 
-    // 3. Setup Linux GPIO Devices based on policy
+    // 3. Setup Linux GPIO Devices based on policy (Modern CDEV API)
     let mut gpio_pins: BTreeMap<String, Box<dyn gpio::ErasedOutputPin + Send + 'static>> =
         BTreeMap::new();
 
+    // Open the GPIO chip. On Pi 4 it is usually gpiochip4, on older ones it might be 0.
+    let mut chip = Chip::new("/dev/gpiochip4")
+        .or_else(|_| Chip::new("/dev/gpiochip0"))
+        .with_context(|| "Failed to open GPIO chip. Are you running on a Raspberry Pi?")?;
+
     for (name, config) in policy.gpio {
-        let pin = SysfsPin::new(config.pin);
+        // Grab the specific pin line from the chip
+        let line = chip
+            .get_line(config.pin)
+            .with_context(|| format!("Failed to find GPIO pin {}", config.pin))?;
 
-        pin.export().with_context(|| {
-            format!(
-                "Failed to export GPIO pin {}. Is sysfs GPIO supported on this machine?",
-                config.pin
-            )
-        })?;
+        let default_val = if config.initial == "High" { 1 } else { 0 };
 
-        pin.set_direction(linux_embedded_hal::sysfs_gpio::Direction::Out)
-            .with_context(|| format!("Failed to set GPIO pin {} as Output", config.pin))?;
+        // Request exclusive access to the pin as an output
+        let handle = line
+            .request(LineRequestFlags::OUTPUT, default_val, "wasm-host")
+            .with_context(|| {
+                format!(
+                    "Failed to request GPIO pin {}. Is it already in use?",
+                    config.pin
+                )
+            })?;
 
-        if config.initial == "High" {
-            pin.set_value(1)
-                .with_context(|| format!("Failed to set GPIO pin {} High", config.pin))?;
-        } else {
-            pin.set_value(0)
-                .with_context(|| format!("Failed to set GPIO pin {} Low", config.pin))?;
-        }
+        // Wrap it in the embedded-hal trait
+        let pin = CdevPin::new(handle)
+            .with_context(|| format!("Failed to initialize CdevPin for {}", config.pin))?;
 
         gpio_pins.insert(name, Box::new(pin));
     }

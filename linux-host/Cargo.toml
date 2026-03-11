@@ -9,7 +9,7 @@ clap = { version = "4.5.53", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 wasmtime = { version = "41.0.1", features = ["component-model"] }
-linux-embedded-hal = "0.4.1"
+linux-embedded-hal = { version = "0.4.1", features = ["gpio_cdev"] }
 spidev = "0.6"
 
 spi = { path = "../lib/spi" }
