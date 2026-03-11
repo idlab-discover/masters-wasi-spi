@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::my::debug::logging::log;
-use crate::wasi::spi::spi::{Config, Mode, SpiDevice, open_device};
+use crate::wasi::spi::spi::{Config, Mode, SpiDevice}; // Removed open_device
 use alloc::vec::Vec;
 
 pub struct Bme280 {
@@ -22,9 +22,10 @@ struct Bme280Calib {
 }
 
 impl Bme280 {
-    pub fn new(device_name: &str) -> Self {
+    // We now take ownership of the SpiDevice directly
+    pub fn new(spi: SpiDevice) -> Self {
         log("Initializing BME280...");
-        let spi = open_device(device_name).expect("Failed to open BME280 SPI device");
+
         let config = Config {
             frequency: 1_000_000,
             mode: Mode::Mode0,

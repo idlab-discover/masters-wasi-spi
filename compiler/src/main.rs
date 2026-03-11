@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     let serialized = engine.precompile_component(&wasm_bytes)?;
 
     // 4. Output
-    let output_path = Path::new("pico2-quick/src/guest.pulley");
+    let output_path = Path::new("host/src/guest.pulley");
     fs::write(output_path, &serialized)?;
 
     println!(

@@ -45,8 +45,7 @@ interface spi {
         transaction: func(operations: list<operation>) -> result<list<operation-result>, error>;
     }
 
-    get-device-names: func() -> list<string>;
-    open-device: func(name: string) -> result<spi-device, error>;
+    get-devices: func() -> result<list<tuple<string, spi-device>>, error>;
 }
 
 world wasi-spi-host {

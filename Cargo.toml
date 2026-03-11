@@ -3,26 +3,20 @@ resolver = "2"
 
 members = [
   "compiler",
-  "pico2-quick",
+  "host",
   "lib/spi", 
   "lib/delay", 
   "lib/gpio",
   "guest"
 ]
 
-# 1. The Default Release Profile 
-# This applies to the Wasm guests (pacman, pmod-oled-driver).
-# It forcefully crushes them down to be as tiny as possible.
 [profile.release]
-opt-level = "z"      # Optimize aggressively for size
-strip = true         # Strip all debug symbols (Crucial for tiny guests!)
-debug = false        # Remove debug info
-lto = true           # Link-Time Optimization (removes unused code)
-codegen-units = 1    # Maximize compression
+opt-level = "z"
+strip = true
+debug = false
+lto = true
+codegen-units = 1
 
-# 2. The Host Override
-# This targets ONLY the `pico2-quick` binary that goes on the Pico 2.
-# It inherits `lto = true` and `opt-level = "z"`, but restores your debugging tools!
-[profile.release.package.pico2-quick]
-strip = false        # DO NOT strip (defmt needs this to decode logs)
-debug = 2            # Keep full debug symbols for probe-rs backtraces
+[profile.release.package.host]
+strip = false
+debug = 2   

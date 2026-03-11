@@ -1,6 +1,6 @@
 use crate::wasi::delay::delay::delay_ms;
 use crate::wasi::gpio::gpio::{Level, set_pin_state};
-use crate::wasi::spi::spi::{Config, Mode, SpiDevice, open_device};
+use crate::wasi::spi::spi::{Config, Mode, SpiDevice}; // Removed open_device
 use embedded_graphics::{pixelcolor::BinaryColor, prelude::*};
 
 const WIDTH: u32 = 128;
@@ -18,9 +18,10 @@ pub struct OledDisplay {
 }
 
 impl OledDisplay {
-    pub fn new(device_name: &str) -> Self {
+    // We now take ownership of the SpiDevice directly
+    pub fn new(spi: SpiDevice) -> Self {
         crate::my::debug::logging::log("Initializing OLED Display...");
-        let spi = open_device(device_name).expect("Failed to open OLED SPI device");
+
         spi.configure(Config {
             frequency: 8_000_000,
             mode: Mode::Mode0,

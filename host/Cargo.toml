@@ -1,5 +1,5 @@
 [package]
-name = "pico2-quick"
+name = "host"
 version = "0.2.0"
 edition = "2024"
 

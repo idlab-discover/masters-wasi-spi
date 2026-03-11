@@ -22,9 +22,9 @@ cargo run -p compiler -- unknown
 
 echo
 echo "========================================"
-echo "📁 Entering pico2-quick project"
+echo "📁 Entering host project"
 echo "========================================"
-cd pico2-quick
+cd host
 
 echo
 echo "========================================"

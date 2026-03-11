@@ -100,17 +100,16 @@ async fn main(_spawner: Spawner) {
     let engine = Engine::new(&config).expect("Engine failed");
 
     // ====================================================
-    // Dynamically expand hardware pins based on policy.toml!
+    // Dynamically expand hardware pins based on policy.toml
     // ====================================================
-    let (device_map, spi0, spi1, gpio_map) = configure_hardware!(p);
+
+    let (spi_hardware, gpio_map) = configure_hardware!(p);
 
     // Construct the Wasmtime host state
     let host_state = HostState {
         spi_ctx: SpiCtx {
             table: ResourceTable::new(),
-            device_map,
-            spi0,
-            spi1,
+            hardware: spi_hardware, // Only pass our new unified vector!
         },
         gpio_ctx: GpioCtx { pins: gpio_map },
         delay_ctx: DelayCtx {},

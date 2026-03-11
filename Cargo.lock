@@ -1189,6 +1189,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "host"
+version = "0.2.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt",
+ "defmt-rtt",
+ "delay",
+ "embassy-executor",
+ "embassy-rp",
+ "embassy-time",
+ "embedded-alloc",
+ "gpio",
+ "panic-probe",
+ "quote",
+ "serde",
+ "spi",
+ "toml 0.8.23",
+ "wasmtime",
+]
+
+[[package]]
 name = "id-arena"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1555,28 +1577,6 @@ name = "pico-args"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
-
-[[package]]
-name = "pico2-quick"
-version = "0.2.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "defmt",
- "defmt-rtt",
- "delay",
- "embassy-executor",
- "embassy-rp",
- "embassy-time",
- "embedded-alloc",
- "gpio",
- "panic-probe",
- "quote",
- "serde",
- "spi",
- "toml 0.8.23",
- "wasmtime",
-]
 
 [[package]]
 name = "pin-project-lite"
