@@ -36,7 +36,6 @@ struct GpioConfig {
     initial: String,
 }
 
-
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     fs::write(out_dir.join("memory.x"), include_bytes!("memory.x")).unwrap();
@@ -47,7 +46,8 @@ fn main() {
     println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
 
     let policy_str = fs::read_to_string("policy.toml").expect("CRITICAL: policy.toml is missing!");
-    let policy: Policy = toml::from_str(&policy_str).expect("CRITICAL: Failed to parse policy.toml");
+    let policy: Policy =
+        toml::from_str(&policy_str).expect("CRITICAL: Failed to parse policy.toml");
 
     let mut spi_initializations = quote! {
         let mut spi_hardware: alloc::vec::Vec<(alloc::string::String, alloc::boxed::Box<dyn spi::SpiHardware + Send>)> = alloc::vec::Vec::new();
@@ -69,8 +69,8 @@ fn main() {
                 $p.#block_ident, $p.#sck_pin, $p.#mosi_pin, $p.#miso_pin, embassy_rp::spi::Config::default()
             );
             let #cs_ident = embassy_rp::gpio::Output::new($p.#cs_pin, embassy_rp::gpio::Level::High);
-            
-            spi_hardware.push((alloc::string::String::from(#name), alloc::boxed::Box::new((#spi_ident, #cs_ident))));
+            let device = embedded_hal_bus::spi::ExclusiveDevice::new_no_delay(#spi_ident, #cs_ident).unwrap();
+            spi_hardware.push((alloc::string::String::from(#name), alloc::boxed::Box::new(device)));
         });
     }
 
@@ -96,5 +96,4 @@ fn main() {
     };
 
     fs::write(out_dir.join("hardware_policy.rs"), final_code.to_string()).unwrap();
-
 }
