@@ -1,11 +1,11 @@
 #![no_std]
 extern crate alloc;
 
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use core::marker::PhantomData;
-
-use embassy_rp::gpio::Output;
+use embedded_hal::digital::OutputPin;
 use wasmtime::component::{HasData, Linker};
 
 wasmtime::component::bindgen!({
@@ -13,9 +13,23 @@ wasmtime::component::bindgen!({
     world: "wasi-gpio-host",
 });
 
+pub trait ErasedOutputPin {
+    fn set_high(&mut self);
+    fn set_low(&mut self);
+}
+
+impl<T: OutputPin> ErasedOutputPin for T {
+    fn set_high(&mut self) {
+        let _ = OutputPin::set_high(self);
+    }
+    fn set_low(&mut self) {
+        let _ = OutputPin::set_low(self);
+    }
+}
+
 pub struct GpioCtx {
-    // Stores available initialized output pins mapped by a string label
-    pub pins: BTreeMap<String, Output<'static>>,
+    // Now agnostic! Stores any OutputPin wrapper
+    pub pins: BTreeMap<String, Box<dyn ErasedOutputPin + Send + 'static>>,
 }
 
 pub trait GpioView {

@@ -93,7 +93,10 @@ fn main() {
         });
     }
 
-    let mut gpio_inserts = quote! { let mut gpio_map = alloc::collections::BTreeMap::new(); };
+    let mut gpio_inserts = quote! { 
+        let mut gpio_map: alloc::collections::BTreeMap<alloc::string::String, alloc::boxed::Box<dyn gpio::ErasedOutputPin + Send>> = alloc::collections::BTreeMap::new(); 
+    };
+    
     for (name, config) in policy.gpio.into_iter().flatten() {
         let pin_ident = format_ident!("PIN_{}", config.pin);
         let level = match config.initial.as_str() {
@@ -101,7 +104,12 @@ fn main() {
             "Low" => quote! { embassy_rp::gpio::Level::Low },
             _ => panic!("Invalid GPIO level"),
         };
-        gpio_inserts.extend(quote! { gpio_map.insert(alloc::string::String::from(#name), embassy_rp::gpio::Output::new($p.#pin_ident, #level)); });
+        gpio_inserts.extend(quote! { 
+            gpio_map.insert(
+                alloc::string::String::from(#name), 
+                alloc::boxed::Box::new(embassy_rp::gpio::Output::new($p.#pin_ident, #level))
+            ); 
+        });
     }
 
     let final_code = quote! {
