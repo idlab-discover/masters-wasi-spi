@@ -17,47 +17,47 @@ wasmtime::component::bindgen!({
     with: { "wasi:spi/spi.spi-device": ActiveSpiDriver }
 });
 
+use wasi::spi::spi;
+
 pub struct ActiveSpiDriver {
-    pub id: usize, // Now just an array index!
+    pub id: usize,
 }
 
 pub trait SpiHardware {
-    fn configure(&mut self, config: &RpSpiConfig) -> Result<(), wasi::spi::spi::Error>;
-    fn read_data(&mut self, buf: &mut [u8]) -> Result<(), wasi::spi::spi::Error>;
-    fn write_data(&mut self, data: &[u8]) -> Result<(), wasi::spi::spi::Error>;
-    fn transfer_data(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), wasi::spi::spi::Error>;
+    fn configure(&mut self, config: &RpSpiConfig) -> Result<(), spi::Error>;
+    fn read_data(&mut self, buf: &mut [u8]) -> Result<(), spi::Error>;
+    fn write_data(&mut self, data: &[u8]) -> Result<(), spi::Error>;
+    fn transfer_data(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error>;
 }
 
-// 1. Embassy Implementation remains exactly the same
 impl<'d, T: Instance> SpiHardware for (Spi<'d, T, Blocking>, Output<'d>) {
-    fn configure(&mut self, config: &RpSpiConfig) -> Result<(), wasi::spi::spi::Error> {
+    fn configure(&mut self, config: &RpSpiConfig) -> Result<(), spi::Error> {
         self.0.set_config(config);
         Ok(())
     }
-    fn read_data(&mut self, buf: &mut [u8]) -> Result<(), wasi::spi::spi::Error> {
+    fn read_data(&mut self, buf: &mut [u8]) -> Result<(), spi::Error> {
         self.1.set_low();
         let res = self.0.blocking_read(buf);
         self.1.set_high();
-        res.map_err(|_| wasi::spi::spi::Error::Other("Read failed".into()))
+        res.map_err(|_| spi::Error::Other("Read failed".into()))
     }
-    fn write_data(&mut self, data: &[u8]) -> Result<(), wasi::spi::spi::Error> {
+    fn write_data(&mut self, data: &[u8]) -> Result<(), spi::Error> {
         self.1.set_low();
         let res = self.0.blocking_write(data);
         self.1.set_high();
-        res.map_err(|_| wasi::spi::spi::Error::Other("Write failed".into()))
+        res.map_err(|_| spi::Error::Other("Write failed".into()))
     }
-    fn transfer_data(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), wasi::spi::spi::Error> {
+    fn transfer_data(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error> {
         self.1.set_low();
         let res = self.0.blocking_transfer(rx, tx);
         self.1.set_high();
-        res.map_err(|_| wasi::spi::spi::Error::Other("Transfer failed".into()))
+        res.map_err(|_| spi::Error::Other("Transfer failed".into()))
     }
 }
 
-// 2. Dramatically Simplified Context
 pub struct SpiCtx {
     pub table: ResourceTable,
-    pub hardware: Vec<(String, Box<dyn SpiHardware + Send + 'static>)>, // Unified list
+    pub hardware: Vec<(String, Box<dyn SpiHardware + Send + 'static>)>,
 }
 
 pub trait SpiView {
@@ -69,32 +69,29 @@ pub struct SpiImpl<'a, T> {
 }
 
 impl<'a, T: SpiView> SpiImpl<'a, T> {
-    // 3. Lightning fast O(1) array lookup
     fn get_hw(
         &mut self,
         handle: &Resource<ActiveSpiDriver>,
-    ) -> Result<&mut Box<dyn SpiHardware + Send + 'static>, wasi::spi::spi::Error> {
+    ) -> Result<&mut Box<dyn SpiHardware + Send + 'static>, spi::Error> {
         let id = self
             .host
             .spi_ctx()
             .table
             .get(handle)
-            .map_err(|_| wasi::spi::spi::Error::Other("Bad Handle".into()))?
+            .map_err(|_| spi::Error::Other("Bad Handle".into()))?
             .id;
 
         self.host
             .spi_ctx()
             .hardware
             .get_mut(id)
-            .map(|(_, hw)| hw) // Just pass back the &mut Box
-            .ok_or_else(|| wasi::spi::spi::Error::Other("HW unavailable".into()))
+            .map(|(_, hw)| hw)
+            .ok_or_else(|| spi::Error::Other("HW unavailable".into()))
     }
 }
 
-impl<'a, T: SpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
-    fn get_devices(
-        &mut self,
-    ) -> Result<Vec<(String, Resource<ActiveSpiDriver>)>, wasi::spi::spi::Error> {
+impl<'a, T: SpiView> spi::Host for SpiImpl<'a, T> {
+    fn get_devices(&mut self) -> Result<Vec<(String, Resource<ActiveSpiDriver>)>, spi::Error> {
         let mut devices = Vec::new();
         let ctx = self.host.spi_ctx();
 
@@ -103,41 +100,35 @@ impl<'a, T: SpiView> wasi::spi::spi::Host for SpiImpl<'a, T> {
             let handle = ctx
                 .table
                 .push(ActiveSpiDriver { id })
-                .map_err(|e| wasi::spi::spi::Error::Other(e.to_string()))?;
+                .map_err(|e| spi::Error::Other(e.to_string()))?;
             devices.push((name.clone(), handle));
         }
         Ok(devices)
     }
 }
 
-impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
+impl<'a, T: SpiView> spi::HostSpiDevice for SpiImpl<'a, T> {
     fn configure(
         &mut self,
         handle: Resource<ActiveSpiDriver>,
-        config: wasi::spi::spi::Config,
-    ) -> Result<(), wasi::spi::spi::Error> {
+        config: spi::Config,
+    ) -> Result<(), spi::Error> {
         if config.lsb_first {
-            return Err(wasi::spi::spi::Error::Other(
-                "LSB natively unsupported".into(),
-            ));
+            return Err(spi::Error::Other("LSB natively unsupported".into()));
         }
 
         let mut rp_config = RpSpiConfig::default();
         rp_config.frequency = config.frequency;
         (rp_config.polarity, rp_config.phase) = match config.mode {
-            wasi::spi::spi::Mode::Mode0 => (Polarity::IdleLow, Phase::CaptureOnFirstTransition),
-            wasi::spi::spi::Mode::Mode1 => (Polarity::IdleLow, Phase::CaptureOnSecondTransition),
-            wasi::spi::spi::Mode::Mode2 => (Polarity::IdleHigh, Phase::CaptureOnFirstTransition),
-            wasi::spi::spi::Mode::Mode3 => (Polarity::IdleHigh, Phase::CaptureOnSecondTransition),
+            spi::Mode::Mode0 => (Polarity::IdleLow, Phase::CaptureOnFirstTransition),
+            spi::Mode::Mode1 => (Polarity::IdleLow, Phase::CaptureOnSecondTransition),
+            spi::Mode::Mode2 => (Polarity::IdleHigh, Phase::CaptureOnFirstTransition),
+            spi::Mode::Mode3 => (Polarity::IdleHigh, Phase::CaptureOnSecondTransition),
         };
         self.get_hw(&handle)?.configure(&rp_config)
     }
 
-    fn read(
-        &mut self,
-        handle: Resource<ActiveSpiDriver>,
-        len: u64,
-    ) -> Result<Vec<u8>, wasi::spi::spi::Error> {
+    fn read(&mut self, handle: Resource<ActiveSpiDriver>, len: u64) -> Result<Vec<u8>, spi::Error> {
         let mut buf = vec![0u8; len as usize];
         self.get_hw(&handle)?.read_data(&mut buf)?;
         Ok(buf)
@@ -147,7 +138,7 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         &mut self,
         handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
-    ) -> Result<(), wasi::spi::spi::Error> {
+    ) -> Result<(), spi::Error> {
         self.get_hw(&handle)?.write_data(&data)
     }
 
@@ -155,7 +146,7 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
         &mut self,
         handle: Resource<ActiveSpiDriver>,
         data: Vec<u8>,
-    ) -> Result<Vec<u8>, wasi::spi::spi::Error> {
+    ) -> Result<Vec<u8>, spi::Error> {
         let mut rx = vec![0u8; data.len()];
         self.get_hw(&handle)?.transfer_data(&mut rx, &data)?;
         Ok(rx)
@@ -164,9 +155,9 @@ impl<'a, T: SpiView> wasi::spi::spi::HostSpiDevice for SpiImpl<'a, T> {
     fn transaction(
         &mut self,
         _: Resource<ActiveSpiDriver>,
-        _: Vec<wasi::spi::spi::Operation>,
-    ) -> Result<Vec<wasi::spi::spi::OperationResult>, wasi::spi::spi::Error> {
-        Err(wasi::spi::spi::Error::Other("Unsupported".into()))
+        _: Vec<spi::Operation>,
+    ) -> Result<Vec<spi::OperationResult>, spi::Error> {
+        Err(spi::Error::Other("Unsupported".into()))
     }
 
     fn drop(&mut self, rep: Resource<ActiveSpiDriver>) -> wasmtime::Result<()> {
@@ -180,5 +171,5 @@ impl<T: SpiView + 'static> HasData for SpiBindingMarker<T> {
     type Data<'a> = SpiImpl<'a, T>;
 }
 pub fn add_to_linker<T: SpiView + 'static>(linker: &mut Linker<T>) -> wasmtime::Result<()> {
-    wasi::spi::spi::add_to_linker::<T, SpiBindingMarker<T>>(linker, |host| SpiImpl { host })
+    spi::add_to_linker::<T, SpiBindingMarker<T>>(linker, |host| SpiImpl { host })
 }
