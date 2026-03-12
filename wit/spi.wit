@@ -1,6 +1,8 @@
 package wasi:spi;
 
 interface spi {
+
+    // Errors as per https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/enum.ErrorKind.html
     variant error {
         overrun,
         mode-fault,
@@ -10,6 +12,8 @@ interface spi {
         other(string),
     }
 
+    // Operations as per https://docs.rs/embedded-hal/latest/embedded_hal/spi/enum.Operation.html
+    // Transfer in place is not supported due to the pass-by-value semantics of the Component Model canonical ABI
     variant operation {
         read(u64),
         write(list<u8>),
