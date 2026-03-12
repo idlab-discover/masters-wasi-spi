@@ -2724,6 +2724,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
+name = "wasi-embedded-hal"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal 1.0.0",
+ "wit-bindgen 0.48.1",
+]
+
+[[package]]
 name = "wasip2"
 version = "1.0.2+wasi-0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

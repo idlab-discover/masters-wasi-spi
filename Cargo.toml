@@ -8,7 +8,7 @@ members = [
   "lib/host/delay", 
   "lib/host/gpio",
   "guest"
-, "linux-host"]
+, "linux-host", "lib/guest/wasi-embedded-hal"]
 
 [profile.release]
 opt-level = "z"

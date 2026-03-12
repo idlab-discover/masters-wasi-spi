@@ -1,0 +1,8 @@
+[package]
+name = "wasi-embedded-hal"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embedded-hal = "1.0.0"
+wit-bindgen = "0.48.1"
