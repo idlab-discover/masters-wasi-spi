@@ -147,18 +147,19 @@ impl<'a, T: SpiView> SpiImpl<'a, T> {
 }
 
 impl<'a, T: SpiView> spi::Host for SpiImpl<'a, T> {
-    fn get_devices(&mut self) -> Result<Vec<(String, Resource<ActiveSpiDriver>)>, spi::Error> {
-        let mut devices = Vec::new();
+    fn open(&mut self, name: String) -> Result<Resource<ActiveSpiDriver>, spi::Error> {
         let ctx = self.host.spi_ctx();
 
-        for (id, (name, _)) in ctx.hardware.iter().enumerate() {
-            let handle = ctx
-                .table
-                .push(ActiveSpiDriver { id })
-                .map_err(|e| spi::Error::Other(e.to_string()))?;
-            devices.push((name.clone(), handle));
-        }
-        Ok(devices)
+        let (id, _) = ctx
+            .hardware
+            .iter()
+            .enumerate()
+            .find(|(_, (hw_name, _))| hw_name == &name)
+            .ok_or_else(|| spi::Error::Other(alloc::format!("Device '{}' not found", name)))?;
+
+        ctx.table
+            .push(ActiveSpiDriver { id })
+            .map_err(|e| spi::Error::Other(e.to_string()))
     }
 }
 
