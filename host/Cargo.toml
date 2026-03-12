@@ -1,21 +1,5 @@
 [package]
 name = "host"
-<<<<<<< HEAD
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-anyhow = "1.0.100"
-wasmtime = "39.0.0"
-linux-embedded-hal = "0.4.1"
-wasmtime-wasi = "39.0.0"
-embedded-hal = "1.0.0"
-clap = { version = "4.5.53", features = ["derive"] }
-wasi-spi = { path = "../wasi-spi" }
-wasi-gpio = { git = "https://github.com/lbarraga/wasi-gpio-implementations", subdir = "wasi-gpio" }
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
-=======
 version = "0.2.0"
 edition = "2024"
 
@@ -53,4 +37,3 @@ wasmtime = { version = "41.0.1", default-features = false, features = ["runtime"
 delay = { path = "../lib/delay" }
 gpio = { path = "../lib/gpio" }
 spi = { path = "../lib/spi" }
->>>>>>> pico/main

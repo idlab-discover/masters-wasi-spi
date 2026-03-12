@@ -1,8 +1,2 @@
 target/
-<<<<<<< HEAD
-.direnv/
-.envrc
-.idea/
-=======
 .direnv
->>>>>>> pico/main

@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  description = "A declarative development environment for the wasi-spi thesis";
-=======
   description = "Pico 2 W Rust Environment";
->>>>>>> pico/main
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -20,11 +16,6 @@
           config.allowUnfree = true;
         };
 
-<<<<<<< HEAD
-        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-          targets = [ "wasm32-wasip1" "wasm32-wasip2" ];
-          extensions = [ "rust-src" "clippy" ];
-=======
         # Pico 2 uses Arm Cortex-M33 (thumbv8m)
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [
@@ -34,23 +25,10 @@
             "wasm32-wasip2"
           ];
           extensions = [ "rust-src" "clippy" "llvm-tools-preview" ];
->>>>>>> pico/main
         };
 
       in {
         devShells.default = pkgs.mkShell {
-<<<<<<< HEAD
-          name = "wasi-thesis-shell";
-
-          packages = [
-            rustToolchain
-            pkgs.wasmtime
-            pkgs.cargo-component
-            pkgs.wac-cli
-            pkgs.wkg
-            pkgs.jetbrains.rust-rover
-            pkgs.lld
-=======
           name = "pico2-shell";
 
           packages = [
@@ -65,7 +43,6 @@
             pkgs.wasm-tools
             pkgs.wabt
             pkgs.probe-rs-tools
->>>>>>> pico/main
           ];
         };
       });

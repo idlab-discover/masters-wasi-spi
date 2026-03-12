@@ -1,14 +1,4 @@
 [workspace]
-<<<<<<< HEAD
-members = [
-    "host",
-    "wasi-spi",
-    "guests/oled-screen/pmod-oled-driver",
-    "guests/oled-screen/pacman",
-    "guests/oled-screen/ball-screensaver"
-]
-resolver = "2"
-=======
 resolver = "2"
 
 members = [
@@ -30,4 +20,3 @@ codegen-units = 1
 [profile.release.package.host]
 strip = false
 debug = 2   
->>>>>>> pico/main

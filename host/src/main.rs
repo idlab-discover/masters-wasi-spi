@@ -1,47 +1,3 @@
-<<<<<<< HEAD
-use std::fs;
-
-use clap::Parser;
-use wasmtime::{
-    Config, Engine, Store,
-    component::{Component, Linker},
-};
-use wasmtime_wasi::{
-    ResourceTable, WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView, p2::add_to_linker_sync,
-};
-
-use wasi_gpio::{WasiGpioCtx, WasiGpioView};
-use wasi_spi::{SpiConfig, WasiSpiCtx, WasiSpiView};
-
-use crate::policies::HostPolicy;
-
-mod argument_parser;
-mod policies;
-
-wasmtime::component::bindgen!({
-    path: "../guests/oled-screen/pacman/wit",
-    world: "app",
-});
-
-struct HostState {
-    ctx: WasiCtx,
-    table: ResourceTable,
-    spi_ctx: WasiSpiCtx,
-    gpio_ctx: WasiGpioCtx,
-}
-
-impl WasiView for HostState {
-    fn ctx(&mut self) -> WasiCtxView<'_> {
-        WasiCtxView {
-            ctx: &mut self.ctx,
-            table: &mut self.table,
-        }
-    }
-}
-
-impl WasiSpiView for HostState {
-    fn spi_ctx(&mut self) -> &mut WasiSpiCtx {
-=======
 #![no_std]
 #![no_main]
 
@@ -88,80 +44,10 @@ impl my::debug::logging::Host for HostState {
 
 impl SpiView for HostState {
     fn spi_ctx(&mut self) -> &mut SpiCtx {
->>>>>>> pico/main
         &mut self.spi_ctx
     }
 }
 
-<<<<<<< HEAD
-impl WasiGpioView for HostState {
-    fn gpio_ctx(&mut self) -> &mut WasiGpioCtx {
-        &mut self.gpio_ctx
-    }
-
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
-}
-
-fn main() -> anyhow::Result<()> {
-    let args = argument_parser::HostArguments::parse();
-
-    let policy_content = fs::read_to_string(&args.policy_file)
-        .map_err(|e| anyhow::anyhow!("Failed to read policy file: {}", e))?;
-
-    let policy: HostPolicy = toml::from_str(&policy_content)
-        .map_err(|e| anyhow::anyhow!("Failed to parse TOML: {}", e))?;
-
-    let spi_configs: Vec<SpiConfig> = policy
-        .wasi
-        .spi
-        .into_iter()
-        .map(|cfg| SpiConfig {
-            virtual_name: cfg.virtual_name,
-            physical_path: cfg.physical_path,
-        })
-        .collect();
-
-    let spi_ctx = WasiSpiCtx::from_configs(spi_configs)?;
-
-    let gpio_config = wasi_gpio::policies::Config {
-        policy_file: args.policy_file,
-        component: args.component_path.clone(),
-    };
-
-    let policies = gpio_config.get_policies();
-    let gpio_ctx = WasiGpioCtx::new(policies);
-
-    let state = HostState {
-        ctx: WasiCtxBuilder::new().inherit_stdio().build(),
-        table: ResourceTable::new(),
-        spi_ctx,
-        gpio_ctx,
-    };
-
-    let mut config = Config::new();
-    config.wasm_component_model(true);
-    let engine = Engine::new(&config)?;
-    let mut linker = Linker::new(&engine);
-
-    add_to_linker_sync(&mut linker)?;
-
-    wasi_spi::add_to_linker(&mut linker)?;
-
-    wasi_gpio::add_to_linker(&mut linker)?;
-
-    let mut store = Store::new(&engine, state);
-    let component = Component::from_file(&engine, &args.component_path)?;
-
-    let app = App::instantiate(&mut store, &component, &linker)?;
-
-    println!("Host: Calling guest run()...");
-    app.call_run(&mut store)?;
-    println!("Host: Guest finished.");
-
-    Ok(())
-=======
 impl GpioView for HostState {
     fn gpio_ctx(&mut self) -> &mut GpioCtx {
         &mut self.gpio_ctx
@@ -253,5 +139,4 @@ async fn main(_spawner: Spawner) {
 
     info!("Starting guest...");
     app.call_run(&mut store).unwrap();
->>>>>>> pico/main
 }

@@ -1,7 +1,0 @@
-package wasi:gpio@0.2.0;
-
-world imports {
-    import digital;
-    import analog;
-    import delay;
-}
