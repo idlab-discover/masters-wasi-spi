@@ -5,6 +5,7 @@ run build.sh
 
 ## pico 2 pinout
 
+```
 BME280 Pin,Function,Pico 2 Pin
 +,3.3V Power,3V3 (Pin 36)
 -,Ground,GND (Pin 38)
@@ -24,6 +25,7 @@ PmodOLED Pin,Function,Pico 2 Pin Recommendation,Pico 2 Hardware Peripheral
 8,RES (Reset),GP3 (Pin 5),Standard GPIO
 9,VBATC (Bat Volt),GP4 (Pin 6),Standard GPIO
 10,VDDC (Logic Volt),GP5 (Pin 7),Standard GPIO
+```
 
 ## Raspberry pi 4 pinout
 
