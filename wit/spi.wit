@@ -24,6 +24,7 @@ interface spi {
         delay,
     }
 
+<<<<<<< HEAD
     enum mode {
         mode0, // CPOL=0, CPHA=0
         mode1, // CPOL=0, CPHA=1
@@ -39,14 +40,21 @@ interface spi {
 
     resource spi-device {
         configure: func(config: config) -> result<_, error>;
+=======
+    resource spi-device {
+>>>>>>> pico/main
         read: func(len: u64) -> result<list<u8>, error>;
         write: func(data: list<u8>) -> result<_, error>;
         transfer: func(data: list<u8>) -> result<list<u8>, error>;
         transaction: func(operations: list<operation>) -> result<list<operation-result>, error>;
     }
 
+<<<<<<< HEAD
     get-device-names: func() -> list<string>;
     open-device: func(name: string) -> result<spi-device, error>;
+=======
+    get-devices: func() -> result<list<tuple<string, spi-device>>, error>;
+>>>>>>> pico/main
 }
 
 world wasi-spi-host {

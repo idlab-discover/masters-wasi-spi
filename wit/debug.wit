@@ -1,0 +1,5 @@
+package my:debug;
+
+interface logging {
+    log: func(msg: string);
+}

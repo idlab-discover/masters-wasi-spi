@@ -1,0 +1,9 @@
+package wasi:delay;
+
+interface delay {
+    delay-ms: func(ms: u32);
+}
+
+world wasi-delay-host {
+    import delay;
+}

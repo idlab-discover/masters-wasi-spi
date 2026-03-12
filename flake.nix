@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   description = "A declarative development environment for the wasi-spi thesis";
+=======
+  description = "Pico 2 W Rust Environment";
+>>>>>>> pico/main
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -16,13 +20,26 @@
           config.allowUnfree = true;
         };
 
+<<<<<<< HEAD
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [ "wasm32-wasip1" "wasm32-wasip2" ];
           extensions = [ "rust-src" "clippy" ];
+=======
+        # Pico 2 uses Arm Cortex-M33 (thumbv8m)
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          targets = [
+            "thumbv8m.main-none-eabihf"
+            "wasm32-unknown-unknown"
+            "wasm32-wasip1"
+            "wasm32-wasip2"
+          ];
+          extensions = [ "rust-src" "clippy" "llvm-tools-preview" ];
+>>>>>>> pico/main
         };
 
       in {
         devShells.default = pkgs.mkShell {
+<<<<<<< HEAD
           name = "wasi-thesis-shell";
 
           packages = [
@@ -33,6 +50,22 @@
             pkgs.wkg
             pkgs.jetbrains.rust-rover
             pkgs.lld
+=======
+          name = "pico2-shell";
+
+          packages = [
+            rustToolchain
+            pkgs.elf2uf2-rs # Flashing tool
+            pkgs.picotool # Official Pico utility (optional but good)
+            pkgs.flip-link # Linker optimizer (standard in embedded rust)
+            pkgs.cargo-generate
+            pkgs.cargo-component
+            pkgs.wasmtime
+            pkgs.wac-cli
+            pkgs.wasm-tools
+            pkgs.wabt
+            pkgs.probe-rs-tools
+>>>>>>> pico/main
           ];
         };
       });

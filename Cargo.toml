@@ -1,4 +1,5 @@
 [workspace]
+<<<<<<< HEAD
 members = [
     "host",
     "wasi-spi",
@@ -7,3 +8,26 @@ members = [
     "guests/oled-screen/ball-screensaver"
 ]
 resolver = "2"
+=======
+resolver = "2"
+
+members = [
+  "compiler",
+  "host",
+  "lib/spi", 
+  "lib/delay", 
+  "lib/gpio",
+  "guest"
+, "linux-host"]
+
+[profile.release]
+opt-level = "z"
+strip = true
+debug = false
+lto = true
+codegen-units = 1
+
+[profile.release.package.host]
+strip = false
+debug = 2   
+>>>>>>> pico/main
