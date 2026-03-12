@@ -6,7 +6,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use embedded_hal::spi::{Operation as HalOperation, SpiDevice};
+use embedded_hal::spi::{Error as HalError, ErrorKind, Operation as HalOperation, SpiDevice};
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 
 wasmtime::component::bindgen!({
@@ -36,24 +36,31 @@ pub trait ErasedSpiDevice {
 // 2. The Universal `embedded-hal` Implementation
 // ------------------------------------------------------------------
 
-// By mapping all of these directly, we piggyback on whatever specific
-// optimizations the underlying HAL device has implemented for them.
+fn map_hal_error<E: HalError>(err: E) -> spi::Error {
+    match err.kind() {
+        ErrorKind::Overrun => spi::Error::Overrun,
+        ErrorKind::ModeFault => spi::Error::ModeFault,
+        ErrorKind::FrameFormat => spi::Error::FrameFormat,
+        ErrorKind::ChipSelectFault => spi::Error::ChipSelectFault,
+        _ => spi::Error::Other("Hardware SPI error".to_string()),
+    }
+}
+
 impl<T: SpiDevice<u8>> ErasedSpiDevice for T {
     fn read(&mut self, buf: &mut [u8]) -> Result<(), spi::Error> {
-        SpiDevice::read(self, buf).map_err(|_| spi::Error::Other("Read failed".into()))
+        SpiDevice::read(self, buf).map_err(map_hal_error)
     }
 
     fn write(&mut self, data: &[u8]) -> Result<(), spi::Error> {
-        SpiDevice::write(self, data).map_err(|_| spi::Error::Other("Write failed".into()))
+        SpiDevice::write(self, data).map_err(map_hal_error)
     }
 
     fn transfer(&mut self, rx: &mut [u8], tx: &[u8]) -> Result<(), spi::Error> {
-        SpiDevice::transfer(self, rx, tx).map_err(|_| spi::Error::Other("Transfer failed".into()))
+        SpiDevice::transfer(self, rx, tx).map_err(map_hal_error)
     }
 
     fn transaction(&mut self, operations: &mut [HalOperation<'_, u8>]) -> Result<(), spi::Error> {
-        SpiDevice::transaction(self, operations)
-            .map_err(|_| spi::Error::Other("Transaction failed".into()))
+        SpiDevice::transaction(self, operations).map_err(map_hal_error)
     }
 }
 
