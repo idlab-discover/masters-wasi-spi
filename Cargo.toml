@@ -4,9 +4,9 @@ resolver = "2"
 members = [
   "compiler",
   "host",
-  "lib/spi", 
-  "lib/delay", 
-  "lib/gpio",
+  "lib/host/spi", 
+  "lib/host/delay", 
+  "lib/host/gpio",
   "guest"
 , "linux-host"]
 

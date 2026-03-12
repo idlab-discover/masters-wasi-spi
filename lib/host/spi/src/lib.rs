@@ -10,7 +10,7 @@ use embedded_hal::spi::{Error as HalError, ErrorKind, Operation as HalOperation,
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 
 wasmtime::component::bindgen!({
-    path: "../../wit/spi.wit",
+    path: "../../../wit/spi.wit",
     world: "wasi-spi-host",
     with: { "wasi:spi/spi.spi-device": ActiveSpiDriver }
 });

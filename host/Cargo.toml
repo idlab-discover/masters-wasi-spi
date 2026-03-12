@@ -34,6 +34,6 @@ defmt-rtt = "1.0"
 embedded-alloc = "0.5.1"
 wasmtime = { version = "41.0.1", default-features = false, features = ["runtime", "pulley", "component-model"] }
 
-delay = { path = "../lib/delay" }
-gpio = { path = "../lib/gpio" }
-spi = { path = "../lib/spi" }
+delay = { path = "../lib/host/delay" }
+gpio = { path = "../lib/host/gpio" }
+spi = { path = "../lib/host/spi" }

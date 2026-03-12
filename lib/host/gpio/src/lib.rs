@@ -9,7 +9,7 @@ use embedded_hal::digital::OutputPin;
 use wasmtime::component::{HasData, Linker};
 
 wasmtime::component::bindgen!({
-    path: "../../wit/gpio.wit",
+    path: "../../../wit/gpio.wit",
     world: "wasi-gpio-host",
 });
 

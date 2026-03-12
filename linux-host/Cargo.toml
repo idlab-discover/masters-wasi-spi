@@ -12,6 +12,6 @@ wasmtime = { version = "41.0.1", features = ["component-model"] }
 linux-embedded-hal = { version = "0.4.1", features = ["gpio_cdev"] }
 spidev = "0.6"
 
-spi = { path = "../lib/spi" }
-gpio = { path = "../lib/gpio" }
-delay = { path = "../lib/delay" }
+spi = { path = "../lib/host/spi" }
+gpio = { path = "../lib/host/gpio" }
+delay = { path = "../lib/host/delay" }

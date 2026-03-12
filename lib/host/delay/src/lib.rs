@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use wasmtime::component::{HasData, Linker};
 
 wasmtime::component::bindgen!({
-    path: "../../wit/delay.wit",
+    path: "../../../wit/delay.wit",
     world: "wasi-delay-host",
 });
 
