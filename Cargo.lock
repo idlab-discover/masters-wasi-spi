@@ -195,8 +195,7 @@ dependencies = [
 [[package]]
 name = "bme280"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "169ac81b9123f316fde5b0e00175294dcdcdd800c1a6c92a4b58caf42a14cf1f"
+source = "git+https://github.com/lbarraga/bme280-rs#61558140c8bb746d075a8422df68bedfad873072"
 dependencies = [
  "embedded-hal 1.0.0",
  "maybe-async-cfg",
