@@ -1,4 +1,4 @@
-# Wasmtime in Pico 2: Blinky & SPI Peripherals
+# Wasmtime in Pico 2: SPI Peripherals
 
 
 This project demonstrates running WebAssembly on both a microcontroller (Raspberry Pi Pico 2) and a single-board computer (Raspberry Pi 4). 
