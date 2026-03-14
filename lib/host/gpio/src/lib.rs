@@ -27,7 +27,6 @@ impl<T: OutputPin> ErasedOutputPin for T {
 }
 
 pub struct GpioCtx {
-    // Now agnostic! Stores any OutputPin wrapper
     pub pins: BTreeMap<String, Box<dyn ErasedOutputPin + Send + 'static>>,
 }
 
