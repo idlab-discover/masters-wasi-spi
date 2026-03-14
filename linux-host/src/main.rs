@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use anyhow::Context; // For helpful error messages
+use anyhow::Context;
 use clap::Parser;
 use serde::Deserialize;
 use wasmtime::{
@@ -9,19 +9,17 @@ use wasmtime::{
     component::{Component, HasSelf, Linker, ResourceTable},
 };
 
-// Import your shared, hardware-agnostic libraries
 use delay::{DelayCtx, DelayView};
 use gpio::{GpioCtx, GpioView};
 use spi::{SpiCtx, SpiView};
 
-// Linux hardware implementations for embedded-hal (Modern CDEV approach)
 use linux_embedded_hal::gpio_cdev::{Chip, LineRequestFlags};
 use linux_embedded_hal::{CdevPin, Delay, SpidevDevice};
 use spidev::{SpiModeFlags, Spidev, SpidevOptions};
 
 wasmtime::component::bindgen!({
     path: "../guest/wit",
-    world: "app", // Make sure this matches your Pico host
+    world: "app",
 });
 
 #[derive(Deserialize)]
@@ -39,7 +37,7 @@ struct SpiPolicy {
 
 #[derive(Deserialize)]
 struct GpioPolicy {
-    pin: u32, // Changed to u32 for the CDEV API
+    pin: u32,
     initial: String,
 }
 
@@ -84,7 +82,6 @@ pub struct HostArguments {
 fn main() -> anyhow::Result<()> {
     let args = HostArguments::parse();
 
-    // 1. Parse Policy TOML (with context)
     let policy_content = fs::read_to_string(&args.policy_file).with_context(|| {
         format!(
             "Failed to find or read policy file at '{}'",
@@ -94,7 +91,6 @@ fn main() -> anyhow::Result<()> {
     let policy: HostPolicy = toml::from_str(&policy_content)
         .with_context(|| format!("Failed to parse TOML in policy file '{}'", args.policy_file))?;
 
-    // 2. Setup Linux SPI Devices based on policy
     let mut spi_hardware: Vec<(String, Box<dyn spi::ErasedSpiDevice + Send + 'static>)> =
         Vec::new();
 
@@ -123,7 +119,7 @@ fn main() -> anyhow::Result<()> {
         spi_hardware.push((name, Box::new(spi_device)));
     }
 
-    // 3. Setup Linux GPIO Devices based on policy (Modern CDEV API)
+    // Setup Linux GPIO Devices based on policy
     let mut gpio_pins: BTreeMap<String, Box<dyn gpio::ErasedOutputPin + Send + 'static>> =
         BTreeMap::new();
 
@@ -157,7 +153,7 @@ fn main() -> anyhow::Result<()> {
         gpio_pins.insert(name, Box::new(pin));
     }
 
-    // 4. Initialize Wasmtime HostState using your custom Contexts
+    // Initialize Wasmtime HostState using your custom Contexts
     let state = HostState {
         spi_ctx: SpiCtx {
             table: ResourceTable::new(),
@@ -169,13 +165,11 @@ fn main() -> anyhow::Result<()> {
         },
     };
 
-    // 5. Wasmtime Setup
-    let mut config = Config::new();
-    config.wasm_component_model(true);
-    let engine = Engine::new(&config)?;
+    // Wasmtime Setup
+    let engine = Engine::new(&Config::new())?;
     let mut linker = Linker::new(&engine);
 
-    // Bind your custom libraries to the linker
+    // Bind custom libraries to the linker
     spi::add_to_linker(&mut linker)?;
     gpio::add_to_linker(&mut linker)?;
     delay::add_to_linker(&mut linker)?;

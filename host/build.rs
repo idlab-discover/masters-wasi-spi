@@ -55,6 +55,7 @@ fn main() {
         let mut spi_hardware: alloc::vec::Vec<(alloc::string::String, alloc::boxed::Box<dyn spi::ErasedSpiDevice + Send>)> = alloc::vec::Vec::new();
     };
 
+    // SPI
     for (name, config) in policy.spi.into_iter().flatten() {
         let sck_pin = format_ident!("PIN_{}", config.sck);
         let mosi_pin = format_ident!("PIN_{}", config.mosi);
@@ -66,7 +67,6 @@ fn main() {
         let spi_ident = format_ident!("spi{}", block_num);
         let cs_ident = format_ident!("cs{}", block_num);
 
-        // 2. Map the TOML configuration directly
         let freq = config.frequency;
         let (pol, pha) = match config.mode {
             0 => (quote!(embassy_rp::spi::Polarity::IdleLow), quote!(embassy_rp::spi::Phase::CaptureOnFirstTransition)),
@@ -77,7 +77,6 @@ fn main() {
         };
 
         spi_initializations.extend(quote! {
-            // 3. Inject the configuration at startup!
             let mut rp_config = embassy_rp::spi::Config::default();
             rp_config.frequency = #freq;
             rp_config.polarity = #pol;
@@ -93,6 +92,7 @@ fn main() {
         });
     }
 
+    // GPIO
     let mut gpio_inserts = quote! { 
         let mut gpio_map: alloc::collections::BTreeMap<alloc::string::String, alloc::boxed::Box<dyn gpio::ErasedOutputPin + Send>> = alloc::collections::BTreeMap::new(); 
     };

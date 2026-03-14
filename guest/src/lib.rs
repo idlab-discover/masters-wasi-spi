@@ -35,8 +35,8 @@ impl Guest for MainApp {
         let mut oled_vddc = WasiOutputPin::new("VDDC");
         let oled_dc = WasiOutputPin::new("DC");
 
+        // Screen bootup sequence
         let _ = oled_vddc.set_low();
-
         let _ = oled_res.set_low();
         embedded_hal::delay::DelayNs::delay_us(&mut delay, 10);
         let _ = oled_res.set_high();
@@ -44,9 +44,12 @@ impl Guest for MainApp {
         let screen_spi = WasiSpiDevice::open("screen").expect("Failed screen SPI");
         let sensor_spi = WasiSpiDevice::open("sensor").expect("Failed sensor SPI");
 
-        let interface = SPIInterface::new(screen_spi, oled_dc);
-        let mut display = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate0)
-            .into_buffered_graphics_mode();
+        let mut display = Ssd1306::new(
+            SPIInterface::new(screen_spi, oled_dc),
+            DisplaySize128x32,
+            DisplayRotation::Rotate0,
+        )
+        .into_buffered_graphics_mode();
 
         display.init().expect("SSD1306 software init failed");
 

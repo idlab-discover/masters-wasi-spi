@@ -1,5 +1,3 @@
-// lib/guest/wasi-embedded-hal/src/lib.rs
-
 wit_bindgen::generate!({
     inline: "
         package guest:hal;
