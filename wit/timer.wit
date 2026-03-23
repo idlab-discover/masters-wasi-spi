@@ -1,0 +1,6 @@
+package my:timer;
+
+interface timer {
+    now-micros: func() -> u64;
+}
+

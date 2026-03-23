@@ -1,0 +1,8 @@
+package wasi:benchmark;
+
+world benchmark-app {
+    import wasi:spi/spi;
+    import my:timer/timer;
+
+    export run-benchmark: func(payload-size: u32, iterations: u32) -> u64;
+}

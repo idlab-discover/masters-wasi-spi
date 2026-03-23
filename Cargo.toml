@@ -7,8 +7,13 @@ members = [
   "lib/host/spi", 
   "lib/host/delay", 
   "lib/host/gpio",
-  "guest"
-, "linux-host", "lib/guest/wasi-embedded-hal"]
+  "guest", 
+  "linux-host", 
+  "lib/guest/wasi-embedded-hal", 
+  "benchmark/guest", 
+  "benchmark/linux-host", 
+  "benchmark/pico-host"
+]
 
 [profile.release]
 opt-level = "z"
