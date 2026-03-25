@@ -1,3 +1,5 @@
+use linux_embedded_hal::SpidevDevice;
+use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
 use spi::{ErasedSpiDevice, SpiCtx, SpiView};
 use std::time::Instant;
 use wasmtime::{
@@ -5,45 +7,10 @@ use wasmtime::{
     component::{Component, HasSelf, Linker, ResourceTable},
 };
 
-// We use embedded-hal traits to create a mock device
-use embedded_hal::spi::{Error as HalError, ErrorKind, ErrorType, Operation, SpiDevice};
-
 wasmtime::component::bindgen!({
     path: "../guest/wit",
     world: "benchmark-app",
 });
-
-// --- Mock SPI Implementation ---
-pub struct MockSpi;
-
-#[derive(Debug)]
-pub struct MockError;
-
-impl HalError for MockError {
-    fn kind(&self) -> ErrorKind {
-        ErrorKind::Other
-    }
-}
-
-impl ErrorType for MockSpi {
-    type Error = MockError;
-}
-
-impl SpiDevice for MockSpi {
-    fn transaction(&mut self, _operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
-        Ok(())
-    }
-    fn read(&mut self, _words: &mut [u8]) -> Result<(), Self::Error> {
-        Ok(())
-    }
-    fn write(&mut self, _words: &[u8]) -> Result<(), Self::Error> {
-        Ok(())
-    }
-    fn transfer(&mut self, _read: &mut [u8], _write: &[u8]) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-// -------------------------------
 
 struct HostState {
     spi_ctx: SpiCtx,
@@ -65,25 +32,38 @@ impl crate::my::timer::timer::Host for HostState {
 fn main() -> anyhow::Result<()> {
     let engine = Engine::new(&Config::new())?;
 
-    // Note: Kept your exact component path
     let component = Component::from_file(
         &engine,
         "target/wasm32-unknown-unknown/release/benchmark_guest.component.wasm",
     )?;
 
-    // We keep the baud rates loop just to generate the same formatted output,
-    // but the actual hardware is mocked so it will hit the maximum possible throughput every time.
-    let payload_sizes: [u32; 3] = [16, 128, 1024];
-    let iterations: u32 = 10_000;
+    println!("=== Starting WASI Linux SPI Benchmark ===");
 
-    println!("Starting Linux Cranelift SPI Benchmark\n======================================");
+    let spi_path = "/dev/spidev0.0"; // Adjust to your setup
+    let baud_rates = [100_000, 500_000, 1_000_000, 5_000_000, 10_000_000];
 
-    for size in payload_sizes {
-        // Replaced real spidev with the MockSpi!
+    for baud in baud_rates {
+        println!("\n--- Testing at {} Hz ---", baud);
+
+        // 1. Open and reconfigure the physical SPI bus for the new baud rate
+        let mut spi = SpidevDevice::open(spi_path).unwrap_or_else(|e| {
+            panic!("Failed to open SPI device {}: {}", spi_path, e);
+        });
+
+        let options = SpidevOptions::new()
+            .bits_per_word(8)
+            .max_speed_hz(baud)
+            .mode(SpiModeFlags::SPI_MODE_0)
+            .build();
+
+        spi.configure(&options)
+            .expect("Failed to configure SPI options");
+
+        // 2. Erase the type so it can be passed into the WASI context
         let mut spi_hardware: Vec<(String, Box<dyn ErasedSpiDevice + Send + 'static>)> = vec![];
         spi_hardware.push((
             "bench".to_string(),
-            Box::new(MockSpi) as Box<dyn ErasedSpiDevice + Send + 'static>,
+            Box::new(spi) as Box<dyn ErasedSpiDevice + Send + 'static>,
         ));
 
         let state = HostState {
@@ -94,6 +74,7 @@ fn main() -> anyhow::Result<()> {
             app_start_time: Instant::now(),
         };
 
+        // 3. Setup store and Linker
         let mut store = Store::new(&engine, state);
         let mut linker = Linker::new(&engine);
 
@@ -103,16 +84,19 @@ fn main() -> anyhow::Result<()> {
             |state| state,
         )?;
 
+        // 4. Instantiate and call the Guest payload
         let app = BenchmarkApp::instantiate(&mut store, &component, &linker)?;
-        let time_micros = app.call_run_benchmark(&mut store, size, iterations)?;
+        let results = app.call_run_pingpong(&mut store)?;
 
-        let total_bits = (size as f64 * iterations as f64) * 8.0;
-        let throughput_mbps = total_bits / time_micros as f64;
-
-        println!(
-            "Payload: {:>4} B | Iterations: {:>5} | Time: {:>7} µs | Throughput: {:>5.2} Mbps",
-            size, iterations, time_micros, throughput_mbps
-        );
+        // 5. Output benchmark results
+        for (packet_size, iterations, total_time_us) in results {
+            let avg_us = total_time_us as f64 / iterations as f64;
+            println!(
+                "Size: {:>4} bytes | Total: {:>8} µs | Avg RTT: {:>6.2} µs",
+                packet_size, total_time_us, avg_us
+            );
+        }
     }
+
     Ok(())
 }

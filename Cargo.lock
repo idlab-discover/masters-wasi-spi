@@ -145,8 +145,14 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "benchmark-guest"
 version = "0.1.0"
 dependencies = [
+ "pingpong",
+ "wasi-embedded-hal",
  "wit-bindgen 0.48.1",
 ]
+
+[[package]]
+name = "benchmark-pico-host"
+version = "0.1.0"
 
 [[package]]
 name = "bit-set"
@@ -2997,6 +3003,18 @@ checksum = "3f9dca005e69bf015e45577e415b9af8c67e8ee3c0e38b5b0add5aa92581ed5c"
 dependencies = [
  "leb128fmt",
  "wasmparser 0.245.1",
+]
+
+[[package]]
+name = "wasm-linux-host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "embedded-hal 1.0.0",
+ "linux-embedded-hal",
+ "spi",
+ "spidev",
+ "wasmtime",
 ]
 
 [[package]]

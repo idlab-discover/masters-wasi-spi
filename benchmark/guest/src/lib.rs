@@ -1,8 +1,9 @@
 #![no_std]
 extern crate alloc;
 
-use crate::my::timer::timer;
-use alloc::vec;
+use alloc::vec::Vec;
+use pingpong::{Timer, run_suite};
+use wasi_embedded_hal::WasiSpiDevice;
 
 wit_bindgen::generate!({
     path: "wit",
@@ -10,21 +11,36 @@ wit_bindgen::generate!({
     generate_all,
 });
 
+struct WasiTimer;
+
+impl Timer for WasiTimer {
+    type Instant = u64;
+
+    fn now(&self) -> Self::Instant {
+        crate::my::timer::timer::now_micros()
+    }
+
+    fn elapsed_us(&self, start: Self::Instant) -> u64 {
+        crate::my::timer::timer::now_micros() - start
+    }
+}
+
 struct BenchmarkGuest;
 
 impl Guest for BenchmarkGuest {
-    fn run_benchmark(payload_size: u32, iterations: u32) -> u64 {
-        let spi = wasi::spi::spi::open("bench").expect("Failed to open SPI device");
-        let payload = vec![0xAA; payload_size as usize];
-        let start_time = timer::now_micros();
+    fn run_pingpong() -> Vec<(u32, u32, u64)> {
+        // Open SPI device via the WASI import
+        let mut spi = WasiSpiDevice::open("bench").expect("Failed to open SPI device");
+        let timer = WasiTimer;
 
-        for _ in 0..iterations {
-            let _ = spi.write(&payload);
-        }
+        // Run the pingpong suite
+        let results = run_suite(&mut spi, &timer).expect("Failed to run benchmark suite");
 
-        let end_time = timer::now_micros();
-
-        end_time - start_time
+        // Map the results into the flat tuple structure expected by WIT
+        results
+            .iter()
+            .map(|r| (r.packet_size as u32, r.iterations as u32, r.total_time_us))
+            .collect()
     }
 }
 
