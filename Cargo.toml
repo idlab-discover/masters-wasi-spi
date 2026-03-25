@@ -11,8 +11,9 @@ members = [
   "linux-host", 
   "lib/guest/wasi-embedded-hal", 
   "benchmark/guest", 
-  "benchmark/linux-host", 
-  "benchmark/pico-host"
+  "benchmark/native-linux-host", 
+  "benchmark/native-pico-host", 
+  "benchmark/pingpong"
 ]
 
 [profile.release]

@@ -149,22 +149,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "benchmark-linux-host"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "embedded-hal 1.0.0",
- "linux-embedded-hal",
- "spi",
- "spidev",
- "wasmtime",
-]
-
-[[package]]
-name = "benchmark-pico-host"
-version = "0.1.0"
-
-[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1731,6 +1715,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c8dda44ff03a2f238717214da50f65d5a53b45cd213a7370424ffdb6fae815"
 
 [[package]]
+name = "native-linux-host"
+version = "0.1.0"
+dependencies = [
+ "linux-embedded-hal",
+ "pingpong",
+]
+
+[[package]]
+name = "native-pico-host"
+version = "0.1.0"
+
+[[package]]
 name = "nb"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1927,6 +1923,13 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+
+[[package]]
+name = "pingpong"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal 1.0.0",
+]
 
 [[package]]
 name = "pio"
