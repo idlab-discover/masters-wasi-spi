@@ -1,5 +1,5 @@
 [package]
-name = "wasm-linux-host"
+name = "benchmark-linux-host"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,6 +8,8 @@ anyhow = "1.0.100"
 wasmtime = { version = "41.0.1", features = ["component-model"] }
 linux-embedded-hal = { version = "0.4.1", features = ["gpio_cdev"] }
 spidev = "0.6"
+pingpong = { path = "../pingpong" }
+
 
 spi = { path = "../../lib/host/spi" }
 embedded-hal = "1.0.0"

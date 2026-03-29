@@ -1,8 +1,0 @@
-[package]
-name = "native-linux-host"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-pingpong = { path = "../pingpong" }
-linux-embedded-hal = "0.4.1"

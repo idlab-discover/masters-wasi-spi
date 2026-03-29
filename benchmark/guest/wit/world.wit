@@ -1,8 +1,14 @@
 package wasi:benchmark;
 
+interface bench-utils {
+    set-baud-rate: func(baud: u32);
+    log: func(msg: string);
+}
+
 world benchmark-app {
     import wasi:spi/spi;
     import my:timer/timer;
+    import bench-utils;
 
-    export run-pingpong: func() -> list<tuple<u32, u32, u64, bool>>;
+    export run-pingpong: func();
 }

@@ -151,6 +151,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "benchmark-linux-host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "embedded-hal 1.0.0",
+ "linux-embedded-hal",
+ "pingpong",
+ "spi",
+ "spidev",
+ "wasmtime",
+]
+
+[[package]]
 name = "benchmark-pico-host"
 version = "0.1.0"
 
@@ -1721,14 +1734,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c8dda44ff03a2f238717214da50f65d5a53b45cd213a7370424ffdb6fae815"
 
 [[package]]
-name = "native-linux-host"
-version = "0.1.0"
-dependencies = [
- "linux-embedded-hal",
- "pingpong",
-]
-
-[[package]]
 name = "native-pico-host"
 version = "0.1.0"
 
@@ -3003,18 +3008,6 @@ checksum = "3f9dca005e69bf015e45577e415b9af8c67e8ee3c0e38b5b0add5aa92581ed5c"
 dependencies = [
  "leb128fmt",
  "wasmparser 0.245.1",
-]
-
-[[package]]
-name = "wasm-linux-host"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "embedded-hal 1.0.0",
- "linux-embedded-hal",
- "spi",
- "spidev",
- "wasmtime",
 ]
 
 [[package]]

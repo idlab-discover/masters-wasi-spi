@@ -4,9 +4,9 @@ set -e
 # Get the target from the first argument, default to "pico" if none provided
 TARGET=${1:-pico}
 
-if [[ "$TARGET" != "pico" && "$TARGET" != "linux" && "$TARGET" != "bench-linux-wasm" && "$TARGET" != "bench-linux-native" ]]; then
+if [[ "$TARGET" != "pico" && "$TARGET" != "linux" && "$TARGET" != "bench-linux" ]]; then
   echo "❌ Invalid target: $TARGET"
-  echo "Usage: ./build.sh [pico|linux|bench-linux-wasm|bench-linux-native]"
+  echo "Usage: ./build.sh [pico|linux|bench-linux]"
   exit 1
 fi
 
@@ -14,28 +14,12 @@ echo "========================================"
 echo "🎯 Target: $TARGET"
 echo "========================================"
 
-# --- NATIVE LINUX BENCHMARK ---
-if [[ "$TARGET" == "bench-linux-native" ]]; then
-  echo
-  echo "========================================"
-  echo "🚀 Running Native Linux Benchmark"
-  echo "========================================"
-  cargo run -p native-linux-host --release
-
-  echo
-  echo "========================================"
-  echo "✅ Native benchmark completed successfully"
-  echo "========================================"
-  exit 0
-fi
-
-# --- WASM LINUX BENCHMARK ---
-if [[ "$TARGET" == "bench-linux-wasm" ]]; then
+# --- UNIFIED LINUX BENCHMARK ---
+if [[ "$TARGET" == "bench-linux" ]]; then
   echo
   echo "========================================"
   echo "🛠  Building benchmark guest crate (wasm32 target)"
   echo "========================================"
-  # Assumes the package name in benchmark/guest/Cargo.toml is 'benchmark-guest'
   cargo build -p benchmark-guest --target wasm32-unknown-unknown --release
 
   echo
@@ -48,13 +32,14 @@ if [[ "$TARGET" == "bench-linux-wasm" ]]; then
 
   echo
   echo "========================================"
-  echo "🚀 Running WASM Linux Benchmark"
+  echo "🚀 Running Unified Linux Benchmark (Native + WASM)"
   echo "========================================"
-  cargo run -p wasm-linux-host --release
+
+  cargo run -p benchmark-linux-host --release
 
   echo
   echo "========================================"
-  echo "✅ WASM benchmark completed successfully"
+  echo "✅ Benchmark matrix completed successfully"
   echo "========================================"
   exit 0
 fi

@@ -1,5 +1,8 @@
+// benchmark/pingpong/src/lib.rs
 #![no_std]
+extern crate alloc;
 
+use alloc::format;
 use embedded_hal::spi::SpiDevice;
 
 pub trait Timer {
@@ -8,58 +11,69 @@ pub trait Timer {
     fn elapsed_us(&self, start: Self::Instant) -> u64;
 }
 
-#[derive(Default, Clone, Copy, Debug)]
-pub struct BenchmarkResult {
-    pub packet_size: usize,
-    pub iterations: usize,
-    pub total_time_us: u64,
-    pub valid_loopback: bool,
+// Injects the ability to configure baud rates for the specific SPI type
+pub trait SpiConfigurator<SPI> {
+    type Error;
+    fn set_baud_rate(&mut self, spi: &mut SPI, baud: u32) -> Result<(), Self::Error>;
+}
+
+// Injects a logging capability
+pub trait Logger {
+    fn log(&mut self, msg: &str);
 }
 
 const ITERATIONS: usize = 1000;
+const BAUD_RATES: [u32; 8] = [
+    100_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 15_000_000, 20_000_000,
+];
 
-// Now takes buffers dynamically and yields results via a callback closure
-pub fn run_suite<SPI, T, F>(
+pub fn run_benchmark_matrix<SPI, T, C, L>(
     spi: &mut SPI,
     timer: &T,
+    configurator: &mut C,
+    logger: &mut L,
     tx_buf: &[u8],
     rx_buf: &mut [u8],
-    mut on_result: F,
+    env_name: &str, // E.g. "Native" or "WASM"
 ) -> Result<(), SPI::Error>
 where
     SPI: SpiDevice,
     T: Timer,
-    F: FnMut(BenchmarkResult), // Callback for when a size test finishes
+    C: SpiConfigurator<SPI>,
+    L: Logger,
 {
-    // The max size is dictated purely by the slices passed in
+    logger.log(&format!("=== Starting {} Benchmark ===", env_name));
+    logger.log("Environment,BaudRate,Size_Bytes,TotalTime_us,AvgRTT_us,LoopbackValid");
+
     let max_size = tx_buf.len().min(rx_buf.len());
-    let mut size = 1;
 
-    // Start at 1, double every iteration until we hit max_size
-    while size <= max_size {
-        let tx = &tx_buf[..size];
-        let mut rx = &mut rx_buf[..size];
+    for &baud in &BAUD_RATES {
+        // Ask the environment to apply the baud rate
+        let _ = configurator.set_baud_rate(spi, baud);
 
-        rx.fill(0x00);
+        let mut size = 1;
+        while size <= max_size {
+            let tx = &tx_buf[..size];
+            let mut rx = &mut rx_buf[..size];
 
-        let start = timer.now();
+            rx.fill(0x00);
+            let start = timer.now();
 
-        for _ in 0..ITERATIONS {
-            spi.transfer(&mut rx, tx)?;
+            for _ in 0..ITERATIONS {
+                spi.transfer(&mut rx, tx)?;
+            }
+
+            let elapsed = timer.elapsed_us(start);
+            let valid = rx == tx;
+            let avg_us = elapsed as f64 / ITERATIONS as f64;
+
+            logger.log(&format!(
+                "{},{},{},{},{:.2},{}",
+                env_name, baud, size, elapsed, avg_us, valid
+            ));
+
+            size *= 2;
         }
-
-        let elapsed = timer.elapsed_us(start);
-        let valid = rx == tx;
-
-        // Yield the result back to the caller
-        on_result(BenchmarkResult {
-            packet_size: size,
-            iterations: ITERATIONS,
-            total_time_us: elapsed,
-            valid_loopback: valid,
-        });
-
-        size *= 2; // <--- Doubles the size for the next loop
     }
 
     Ok(())
