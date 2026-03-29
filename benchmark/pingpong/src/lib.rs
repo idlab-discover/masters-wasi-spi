@@ -42,9 +42,6 @@ where
     C: SpiConfigurator<SPI>,
     L: Logger,
 {
-    logger.log(&format!("=== Starting {} Benchmark ===", env_name));
-    logger.log("Environment,BaudRate,Size_Bytes,TotalTime_us,AvgRTT_us,LoopbackValid");
-
     let max_size = tx_buf.len().min(rx_buf.len());
 
     for &baud in &BAUD_RATES {

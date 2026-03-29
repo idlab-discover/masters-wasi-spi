@@ -87,6 +87,8 @@ fn main() -> anyhow::Result<()> {
     let tx_buf = vec![0xA5; 4096];
     let mut rx_buf = vec![0x00; 4096];
 
+    println!("Environment,BaudRate,Size_Bytes,TotalTime_us,AvgRTT_us,LoopbackValid");
+
     // =====================================
     // 1. Run Native Context
     // =====================================
