@@ -24,41 +24,73 @@ if "Environment" not in df.columns:
     sys.exit(1)
 
 # ==========================================
-# 2. Data Processing
+# 2. Data Processing & Dynamic Environment Setup
 # ==========================================
 # Throughput calculation (Bytes * 8 = bits).
 # Dividing bits by microseconds (AvgRTT_us) gives Mbps exactly!
 df["Throughput_Mbps"] = (df["Size_Bytes"] * 8) / df["AvgRTT_us"]
 
-# Split data for comparative operations (Heatmap & Bar chart)
-df_n = df[df["Environment"] == "Native"].copy()
-df_w = df[df["Environment"] == "WASM"].copy()
+# Dynamically identify the environments (assuming exactly 2 for comparison)
+envs = df["Environment"].unique()
+if len(envs) < 2:
+    print("Error: Need at least 2 environments to compare.")
+    sys.exit(1)
+
+# Try to find the "Native" environment dynamically, assign the other to WASM
+env_native = next((e for e in envs if "Native" in e), envs[0])
+env_wasm = next((e for e in envs if e != env_native), envs[1])
+
+print(f"Comparing: '{env_native}' (Native) vs '{env_wasm}' (WASM)")
+
+df_n = df[df["Environment"] == env_native].copy()
+df_w = df[df["Environment"] == env_wasm].copy()
 
 sns.set_theme(style="whitegrid")
 fig = plt.figure(figsize=(18, 12))
+
+
+# Helper to format Baud Rates cleanly (kHz or MHz)
+def format_baud(b):
+    if b >= 1_000_000:
+        return f"{b / 1_000_000:g} MHz"
+    else:
+        return f"{b / 1000:g} kHz"
+
+
+# Find Max Baud Rate dynamically for the first two plots
+max_baud = df["BaudRate"].max()
+df_max_baud = df[df["BaudRate"] == max_baud]
 
 # ==========================================
 # Plot 1: Convergence Line Chart (Latency vs Size)
 # ==========================================
 ax1 = plt.subplot(2, 2, 1)
-df_20m = df[df["BaudRate"] == 20000000]
 sns.lineplot(
-    data=df_20m, x="Size_Bytes", y="AvgRTT_us", hue="Environment", marker="o", ax=ax1
+    data=df_max_baud,
+    x="Size_Bytes",
+    y="AvgRTT_us",
+    hue="Environment",
+    marker="o",
+    ax=ax1,
 )
 ax1.set_xscale("log", base=2)
 ax1.set_yscale("log")
-ax1.set_title("SPI Latency Convergence at 20 MHz", fontsize=14, fontweight="bold")
+ax1.set_title(
+    f"SPI Latency Convergence at {format_baud(max_baud)}",
+    fontsize=14,
+    fontweight="bold",
+)
 ax1.set_xlabel("Payload Size (Bytes, Log Scale)")
 ax1.set_ylabel("Average RTT (µs, Log Scale)")
-ax1.set_xticks(df_n["Size_Bytes"].unique())
-ax1.set_xticklabels(df_n["Size_Bytes"].unique())
+ax1.set_xticks(df_max_baud["Size_Bytes"].unique())
+ax1.set_xticklabels(df_max_baud["Size_Bytes"].unique())
 
 # ==========================================
 # Plot 2: Efficiency Curve (Throughput vs Size)
 # ==========================================
 ax2 = plt.subplot(2, 2, 2)
 sns.lineplot(
-    data=df_20m,
+    data=df_max_baud,
     x="Size_Bytes",
     y="Throughput_Mbps",
     hue="Environment",
@@ -67,12 +99,21 @@ sns.lineplot(
 )
 ax2.set_xscale("log", base=2)
 ax2.set_title(
-    "Effective Throughput at 20 MHz Bus Speed", fontsize=14, fontweight="bold"
+    f"Effective Throughput at {format_baud(max_baud)} Bus Speed",
+    fontsize=14,
+    fontweight="bold",
 )
 ax2.set_xlabel("Payload Size (Bytes, Log Scale)")
 ax2.set_ylabel("Effective Throughput (Mbps)")
+
+# Plot theoretical max throughput based on max baud rate
+max_mbps = max_baud / 1_000_000
 ax2.axhline(
-    20, color="red", linestyle="--", alpha=0.5, label="Theoretical Max (20 Mbps)"
+    max_mbps,
+    color="red",
+    linestyle="--",
+    alpha=0.5,
+    label=f"Theoretical Max ({max_mbps:g} Mbps)",
 )
 ax2.legend()
 
@@ -91,7 +132,7 @@ heatmap_data = merged.pivot(
     index="BaudRate", columns="Size_Bytes", values="Overhead_Times"
 )
 heatmap_data = heatmap_data.sort_index(ascending=False)
-heatmap_data.index = [f"{b / 1000000:g} MHz" for b in heatmap_data.index]
+heatmap_data.index = [format_baud(b) for b in heatmap_data.index]
 
 sns.heatmap(
     heatmap_data,
@@ -106,49 +147,54 @@ ax3.set_xlabel("Payload Size (Bytes)")
 ax3.set_ylabel("SPI Bus Baud Rate")
 
 # ==========================================
-# Plot 4: Stacked Bar Chart (Constant vs Variable Time for 1 Byte)
+# Plot 4: Stacked Bar Chart (Constant vs Variable Time)
 # ==========================================
 ax4 = plt.subplot(2, 2, 4)
-df_1b = merged[merged["Size_Bytes"] == 1].copy()
 
-# Hardware transmission time for 1 byte (8 bits)
-df_1b["HW_Time_us"] = (8 / df_1b["BaudRate"]) * 1_000_000
+# Find the smallest payload size dynamically (usually 1 byte)
+min_size = merged["Size_Bytes"].min()
+df_min = merged[merged["Size_Bytes"] == min_size].copy()
+
+# Hardware transmission time for the minimum bytes (Bits / BaudRate * 1,000,000 µs)
+df_min["HW_Time_us"] = ((min_size * 8) / df_min["BaudRate"]) * 1_000_000
 
 # Software overhead = Total Time - Hardware Time
-df_1b["Native_SW_Overhead"] = df_1b["AvgRTT_us_native"] - df_1b["HW_Time_us"]
-df_1b["WASM_SW_Overhead"] = df_1b["AvgRTT_us_wasm"] - df_1b["HW_Time_us"]
+df_min["Native_SW_Overhead"] = df_min["AvgRTT_us_native"] - df_min["HW_Time_us"]
+df_min["WASM_SW_Overhead"] = df_min["AvgRTT_us_wasm"] - df_min["HW_Time_us"]
 
-labels = [f"{b / 1000000:g} MHz" for b in df_1b["BaudRate"]]
+labels = [format_baud(b) for b in df_min["BaudRate"]]
 x = np.arange(len(labels))
 width = 0.35
 
 ax4.bar(
     x - width / 2,
-    df_1b["HW_Time_us"],
+    df_min["HW_Time_us"],
     width,
     label="Hardware TX Time",
     color="lightblue",
 )
 ax4.bar(
     x - width / 2,
-    df_1b["Native_SW_Overhead"],
+    df_min["Native_SW_Overhead"],
     width,
-    bottom=df_1b["HW_Time_us"],
+    bottom=df_min["HW_Time_us"],
     label="Native Software Overhead",
     color="blue",
 )
 
-ax4.bar(x + width / 2, df_1b["HW_Time_us"], width, color="lightblue")
+ax4.bar(x + width / 2, df_min["HW_Time_us"], width, color="lightblue")
 ax4.bar(
     x + width / 2,
-    df_1b["WASM_SW_Overhead"],
+    df_min["WASM_SW_Overhead"],
     width,
-    bottom=df_1b["HW_Time_us"],
+    bottom=df_min["HW_Time_us"],
     label="WASM Software Overhead",
     color="orange",
 )
 
-ax4.set_title("Time Breakdown for 1-Byte Transfers", fontsize=14, fontweight="bold")
+ax4.set_title(
+    f"Time Breakdown for {min_size}-Byte Transfers", fontsize=14, fontweight="bold"
+)
 ax4.set_xticks(x)
 ax4.set_xticklabels(labels, rotation=45, ha="right")
 ax4.set_ylabel("Time (µs)")
