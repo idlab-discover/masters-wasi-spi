@@ -4,9 +4,9 @@ set -e
 # Get the target from the first argument, default to "pico" if none provided
 TARGET=${1:-pico}
 
-if [[ "$TARGET" != "pico" && "$TARGET" != "linux" && "$TARGET" != "bench-linux" ]]; then
+if [[ "$TARGET" != "pico" && "$TARGET" != "linux" && "$TARGET" != "bench-linux" && "$TARGET" != "bench-pico" ]]; then
   echo "❌ Invalid target: $TARGET"
-  echo "Usage: ./build.sh [pico|linux|bench-linux]"
+  echo "Usage: ./build.sh [pico|linux|bench-linux|bench-pico]"
   exit 1
 fi
 
@@ -34,8 +34,46 @@ if [[ "$TARGET" == "bench-linux" ]]; then
   echo "========================================"
   echo "🚀 Running Unified Linux Benchmark (Native + WASM)"
   echo "========================================"
-
   cargo run -p benchmark-linux-host --release
+
+  echo
+  echo "========================================"
+  echo "✅ Benchmark matrix completed successfully"
+  echo "========================================"
+  exit 0
+fi
+
+# --- UNIFIED PICO BENCHMARK ---
+if [[ "$TARGET" == "bench-pico" ]]; then
+  echo
+  echo "========================================"
+  echo "🛠  Building benchmark guest crate (wasm32 target)"
+  echo "========================================"
+  cargo build -p benchmark-guest --target wasm32-unknown-unknown --release
+
+  echo
+  echo "========================================"
+  echo "📦 Creating Benchmark WASM component"
+  echo "========================================"
+  wasm-tools component new \
+    target/wasm32-unknown-unknown/release/benchmark_guest.wasm \
+    -o target/wasm32-unknown-unknown/release/benchmark_guest.component.wasm
+
+  echo
+  echo "========================================"
+  echo "🧩 Running compiler (Pulley) for Benchmark"
+  echo "========================================"
+  # Pass input and output dynamically
+  cargo run -p compiler -- target/wasm32-unknown-unknown/release/benchmark_guest.component.wasm benchmark/pico-host/src/benchmark_guest.pulley
+
+  echo
+  echo "========================================"
+  echo "🚀 Running Unified Pico Benchmark (Native + WASM)"
+  echo "========================================"
+  # Enter the specific host directory so `.cargo/config.toml` is applied!
+  cd benchmark/pico-host
+  cargo run --release
+  cd ../..
 
   echo
   echo "========================================"
@@ -64,7 +102,8 @@ if [ "$TARGET" = "pico" ]; then
   echo "========================================"
   echo "🧩 Running compiler (Pulley)"
   echo "========================================"
-  cargo run -p compiler -- unknown
+  # Pass standard input and output dynamically
+  cargo run -p compiler -- guest.component.wasm host/src/guest.pulley
 
   echo
   echo "========================================"
@@ -78,7 +117,6 @@ elif [ "$TARGET" = "linux" ]; then
   echo "========================================"
   echo "🚀 Running Linux host (release)"
   echo "========================================"
-  # Run the linux host directly from the root workspace
   cargo run -p linux-host --release -- --policy-file linux-host/policy.toml guest.component.wasm
 fi
 

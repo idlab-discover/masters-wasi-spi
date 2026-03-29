@@ -165,7 +165,27 @@ dependencies = [
 
 [[package]]
 name = "benchmark-pico-host"
-version = "0.1.0"
+version = "0.2.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt",
+ "defmt-rtt",
+ "delay",
+ "embassy-executor",
+ "embassy-rp",
+ "embassy-time",
+ "embedded-alloc",
+ "embedded-hal-bus",
+ "gpio",
+ "panic-probe",
+ "pingpong",
+ "quote",
+ "serde",
+ "spi",
+ "toml 0.8.23",
+ "wasmtime",
+]
 
 [[package]]
 name = "bit-set"
@@ -1732,10 +1752,6 @@ name = "micromath"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c8dda44ff03a2f238717214da50f65d5a53b45cd213a7370424ffdb6fae815"
-
-[[package]]
-name = "native-pico-host"
-version = "0.1.0"
 
 [[package]]
 name = "nb"
