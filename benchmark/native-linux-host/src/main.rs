@@ -16,44 +16,40 @@ impl Timer for StdTimer {
 }
 
 fn main() {
-    println!("=== Starting Native Linux SPI Benchmark ===");
-
-    let spi_path = "/dev/spidev0.0"; // Adjust to your setup
-    let mut spi = SpidevDevice::open(spi_path).unwrap_or_else(|e| {
-        panic!("Failed to open SPI device {}: {}", spi_path, e);
-    });
-
+    let spi_path = "/dev/spidev0.0";
+    let mut spi = SpidevDevice::open(spi_path).expect("Failed to open SPI device");
     let timer = StdTimer;
 
-    // The baud rates we want to test
-    let baud_rates = [100_000, 500_000, 1_000_000, 5_000_000, 10_000_000];
+    // Finer, wider baud rates
+    let baud_rates = [
+        100_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 15_000_000, 20_000_000,
+    ];
+
+    // The host buffers (max size)
+    let tx_buf = vec![0xA5; 4096];
+    let mut rx_buf = vec![0x00; 4096];
+
+    // Print CSV Header
+    println!("BaudRate,Size_Bytes,TotalTime_us,AvgRTT_us,LoopbackValid");
 
     for baud in baud_rates {
-        println!("\n--- Testing at {} Hz ---", baud);
-
-        // Reconfigure the SPI bus for the new baud rate
         let options = SpidevOptions::new()
             .bits_per_word(8)
             .max_speed_hz(baud)
             .mode(SpiModeFlags::SPI_MODE_0)
             .build();
 
-        spi.configure(&options)
-            .expect("Failed to configure SPI options");
+        spi.configure(&options).expect("Failed to configure SPI");
 
-        // Run the suite
-        match run_suite(&mut spi, &timer) {
-            Ok(results) => {
-                for res in results {
-                    let avg_us = res.total_time_us as f64 / res.iterations as f64;
-                    let valid_str = if res.valid_loopback { "OK" } else { "FAIL" };
-                    println!(
-                        "Size: {:>4} bytes | Total: {:>8} µs | Avg RTT: {:>6.2} µs | Loopback: {}",
-                        res.packet_size, res.total_time_us, avg_us, valid_str
-                    );
-                }
-            }
-            Err(e) => eprintln!("Benchmark failed with SPI error: {:?}", e),
+        // Use the closure to print CSV rows as they finish
+        if let Err(e) = run_suite(&mut spi, &timer, &tx_buf, &mut rx_buf, |res| {
+            let avg_us = res.total_time_us as f64 / res.iterations as f64;
+            println!(
+                "{},{},{},{:.2},{}",
+                baud, res.packet_size, res.total_time_us, avg_us, res.valid_loopback
+            );
+        }) {
+            eprintln!("Benchmark failed with SPI error: {:?}", e);
         }
     }
 }

@@ -28,25 +28,28 @@ impl Timer for WasiTimer {
 struct BenchmarkGuest;
 
 impl Guest for BenchmarkGuest {
-    // 1. Update the return type to include `bool`
     fn run_pingpong() -> Vec<(u32, u32, u64, bool)> {
         let mut spi = WasiSpiDevice::open("bench").expect("Failed to open SPI device");
         let timer = WasiTimer;
 
-        let results = run_suite(&mut spi, &timer).expect("Failed to run benchmark suite");
+        // Define your max size here (e.g., 4096 bytes)
+        let tx_buf = alloc::vec![0xA5; 4096];
+        let mut rx_buf = alloc::vec![0x00; 4096];
 
-        // 2. Map the 4th field (r.valid_loopback) into the tuple
+        let mut results = Vec::new();
+
+        // Pass the buffers and a closure to collect the results
+        run_suite(&mut spi, &timer, &tx_buf, &mut rx_buf, |r| {
+            results.push((
+                r.packet_size as u32,
+                r.iterations as u32,
+                r.total_time_us,
+                r.valid_loopback,
+            ));
+        })
+        .expect("Failed to run benchmark suite");
+
         results
-            .iter()
-            .map(|r| {
-                (
-                    r.packet_size as u32,
-                    r.iterations as u32,
-                    r.total_time_us,
-                    r.valid_loopback,
-                )
-            })
-            .collect()
     }
 }
 

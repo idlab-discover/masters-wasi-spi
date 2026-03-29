@@ -8,39 +8,40 @@ pub trait Timer {
     fn elapsed_us(&self, start: Self::Instant) -> u64;
 }
 
-#[derive(Default, Clone, Copy, Debug)] // Added Debug so you can easily print it
+#[derive(Default, Clone, Copy, Debug)]
 pub struct BenchmarkResult {
     pub packet_size: usize,
     pub iterations: usize,
     pub total_time_us: u64,
-    pub valid_loopback: bool, // <--- New field to verify hardware loopback
+    pub valid_loopback: bool,
 }
 
-pub const SIZES: [usize; 6] = [1, 4, 16, 64, 256, 1024];
 const ITERATIONS: usize = 1000;
 
-pub fn run_suite<SPI, T>(
+// Now takes buffers dynamically and yields results via a callback closure
+pub fn run_suite<SPI, T, F>(
     spi: &mut SPI,
     timer: &T,
-) -> Result<[BenchmarkResult; SIZES.len()], SPI::Error>
+    tx_buf: &[u8],
+    rx_buf: &mut [u8],
+    mut on_result: F,
+) -> Result<(), SPI::Error>
 where
     SPI: SpiDevice,
     T: Timer,
+    F: FnMut(BenchmarkResult), // Callback for when a size test finishes
 {
-    // 0xA5 is binary 10100101, an excellent alternating bit pattern for testing SPI lines
-    let tx_buf = [0xA5; 1024];
-    let mut rx_buf = [0x00; 1024];
+    // The max size is dictated purely by the slices passed in
+    let max_size = tx_buf.len().min(rx_buf.len());
+    let mut size = 1;
 
-    let mut results = [BenchmarkResult::default(); SIZES.len()];
-
-    for (i, &size) in SIZES.iter().enumerate() {
+    // Start at 1, double every iteration until we hit max_size
+    while size <= max_size {
         let tx = &tx_buf[..size];
         let mut rx = &mut rx_buf[..size];
 
-        // Wipe the RX buffer before starting to guarantee we aren't reading stale data
         rx.fill(0x00);
 
-        // --- TIMING START ---
         let start = timer.now();
 
         for _ in 0..ITERATIONS {
@@ -48,18 +49,18 @@ where
         }
 
         let elapsed = timer.elapsed_us(start);
-        // --- TIMING END ---
-
-        // Verify that the data we just received perfectly matches what we transmitted
         let valid = rx == tx;
 
-        results[i] = BenchmarkResult {
+        // Yield the result back to the caller
+        on_result(BenchmarkResult {
             packet_size: size,
             iterations: ITERATIONS,
             total_time_us: elapsed,
             valid_loopback: valid,
-        };
+        });
+
+        size *= 2; // <--- Doubles the size for the next loop
     }
 
-    Ok(results)
+    Ok(())
 }

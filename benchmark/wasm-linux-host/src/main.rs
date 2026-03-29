@@ -40,7 +40,10 @@ fn main() -> anyhow::Result<()> {
     println!("=== Starting WASI Linux SPI Benchmark ===");
 
     let spi_path = "/dev/spidev0.0"; // Adjust to your setup
-    let baud_rates = [100_000, 500_000, 1_000_000, 5_000_000, 10_000_000];
+    let baud_rates = [
+        100_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 15_000_000, 20_000_000,
+    ];
+    println!("BaudRate,Size_Bytes,TotalTime_us,AvgRTT_us,LoopbackValid");
 
     for baud in baud_rates {
         println!("\n--- Testing at {} Hz ---", baud);
@@ -88,13 +91,12 @@ fn main() -> anyhow::Result<()> {
         let app = BenchmarkApp::instantiate(&mut store, &component, &linker)?;
         let results = app.call_run_pingpong(&mut store)?;
 
-        // 5. Output benchmark results (Now destructuring 4 variables instead of 3)
+        // Output results as CSV rows
         for (packet_size, iterations, total_time_us, valid_loopback) in results {
             let avg_us = total_time_us as f64 / iterations as f64;
-            let valid_str = if valid_loopback { "OK" } else { "FAIL" };
             println!(
-                "Size: {:>4} bytes | Total: {:>8} µs | Avg RTT: {:>6.2} µs | Loopback: {}",
-                packet_size, total_time_us, avg_us, valid_str
+                "{},{},{},{:.2},{}",
+                baud, packet_size, total_time_us, avg_us, valid_loopback
             );
         }
     }
