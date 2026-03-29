@@ -46,9 +46,10 @@ fn main() {
             Ok(results) => {
                 for res in results {
                     let avg_us = res.total_time_us as f64 / res.iterations as f64;
+                    let valid_str = if res.valid_loopback { "OK" } else { "FAIL" };
                     println!(
-                        "Size: {:>4} bytes | Total: {:>8} µs | Avg RTT: {:>6.2} µs",
-                        res.packet_size, res.total_time_us, avg_us
+                        "Size: {:>4} bytes | Total: {:>8} µs | Avg RTT: {:>6.2} µs | Loopback: {}",
+                        res.packet_size, res.total_time_us, avg_us, valid_str
                     );
                 }
             }
