@@ -140,7 +140,7 @@ async fn main(_spawner: Spawner) {
     // 0. Hardcode the SPI Setup
     // =====================================
     let mut spi_config = SpiConfig::default();
-    spi_config.frequency = 100_000;
+    spi_config.frequency = 125_000;
     let spi_bus = Spi::new_blocking(
         p.SPI0, p.PIN_18, // CLK
         p.PIN_19, // MOSI

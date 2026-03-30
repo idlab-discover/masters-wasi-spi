@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.ticker import ScalarFormatter
 
 # ==========================================
 # 1. Load Data from Command Line Argument
@@ -46,7 +47,8 @@ df_n = df[df["Environment"] == env_native].copy()
 df_w = df[df["Environment"] == env_wasm].copy()
 
 sns.set_theme(style="whitegrid")
-fig = plt.figure(figsize=(18, 12))
+# Slightly increased width to comfortably fit unrotated labels on the bar chart
+fig = plt.figure(figsize=(20, 12))
 
 
 # Helper to format Baud Rates cleanly (kHz or MHz)
@@ -61,6 +63,10 @@ def format_baud(b):
 max_baud = df["BaudRate"].max()
 df_max_baud = df[df["BaudRate"] == max_baud]
 
+# Formatter to force standard integers instead of scientific/math notation like 2^3
+scalar_formatter = ScalarFormatter()
+scalar_formatter.set_scientific(False)
+
 # ==========================================
 # Plot 1: Convergence Line Chart (Latency vs Size)
 # ==========================================
@@ -74,16 +80,19 @@ sns.lineplot(
     ax=ax1,
 )
 ax1.set_xscale("log", base=2)
-ax1.set_yscale("log")
+ax1.set_yscale("log", base=10)
 ax1.set_title(
     f"SPI Latency Convergence at {format_baud(max_baud)}",
     fontsize=14,
     fontweight="bold",
 )
-ax1.set_xlabel("Payload Size (Bytes, Log Scale)")
-ax1.set_ylabel("Average RTT (µs, Log Scale)")
+# Explicitly stating log scale bases
+ax1.set_xlabel("Payload Size (Bytes, log2 scale)")
+ax1.set_ylabel("Average RTT (µs, log10 scale)")
+
+# Forcing full numbers for payload sizes
+ax1.xaxis.set_major_formatter(scalar_formatter)
 ax1.set_xticks(df_max_baud["Size_Bytes"].unique())
-ax1.set_xticklabels(df_max_baud["Size_Bytes"].unique())
 
 # ==========================================
 # Plot 2: Efficiency Curve (Throughput vs Size)
@@ -103,8 +112,13 @@ ax2.set_title(
     fontsize=14,
     fontweight="bold",
 )
-ax2.set_xlabel("Payload Size (Bytes, Log Scale)")
+# Explicitly stating log scale base
+ax2.set_xlabel("Payload Size (Bytes, log2 scale)")
 ax2.set_ylabel("Effective Throughput (Mbps)")
+
+# Forcing full numbers for payload sizes
+ax2.xaxis.set_major_formatter(scalar_formatter)
+ax2.set_xticks(df_max_baud["Size_Bytes"].unique())
 
 # Plot theoretical max throughput based on max baud rate
 max_mbps = max_baud / 1_000_000
@@ -147,7 +161,7 @@ ax3.set_xlabel("Payload Size (Bytes)")
 ax3.set_ylabel("SPI Bus Baud Rate")
 
 # ==========================================
-# Plot 4: Stacked Bar Chart (Constant vs Variable Time)
+# Plot 4: Stacked Bar Chart (Hardware at the bottom)
 # ==========================================
 ax4 = plt.subplot(2, 2, 4)
 
@@ -166,6 +180,7 @@ labels = [format_baud(b) for b in df_min["BaudRate"]]
 x = np.arange(len(labels))
 width = 0.35
 
+# 1. Plot Native bars (Hardware Time on bottom, Overhead on top)
 ax4.bar(
     x - width / 2,
     df_min["HW_Time_us"],
@@ -182,7 +197,13 @@ ax4.bar(
     color="blue",
 )
 
-ax4.bar(x + width / 2, df_min["HW_Time_us"], width, color="lightblue")
+# 2. Plot WASM bars (Hardware Time on bottom, Overhead on top)
+ax4.bar(
+    x + width / 2,
+    df_min["HW_Time_us"],
+    width,
+    color="lightblue",  # No label here so it doesn't duplicate in the legend
+)
 ax4.bar(
     x + width / 2,
     df_min["WASM_SW_Overhead"],
@@ -196,7 +217,7 @@ ax4.set_title(
     f"Time Breakdown for {min_size}-Byte Transfers", fontsize=14, fontweight="bold"
 )
 ax4.set_xticks(x)
-ax4.set_xticklabels(labels, rotation=45, ha="right")
+ax4.set_xticklabels(labels, rotation=0, ha="center")
 ax4.set_ylabel("Time (µs)")
 ax4.legend()
 
