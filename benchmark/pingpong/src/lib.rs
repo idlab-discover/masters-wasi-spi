@@ -23,17 +23,9 @@ pub trait Logger {
 }
 
 const ITERATIONS: usize = 100;
-const BAUD_RATES: [u32; 56] = [
-    // 10 kHz steps through the core anomaly zone (100 kHz - 500 kHz)
-    100_000, 110_000, 120_000, 130_000, 140_000, 150_000, 160_000, 170_000, 180_000, 190_000,
-    200_000, 210_000, 220_000, 230_000, 240_000, 250_000, 260_000, 270_000, 280_000, 290_000,
-    300_000, 310_000, 320_000, 330_000, 340_000, 350_000, 360_000, 370_000, 380_000, 390_000,
-    400_000, 410_000, 420_000, 430_000, 440_000, 450_000, 460_000, 470_000, 480_000, 490_000,
-    500_000, // 50 kHz steps catching the tail end of the anomaly (550 kHz - 1 MHz)
-    550_000, 600_000, 650_000, 700_000, 750_000, 800_000, 850_000, 900_000, 950_000, 1_000_000,
-    // Massive jumps to find the exact polling flip (2 MHz - 32 MHz)
-    2_000_000, 4_000_000, 8_000_000, 16_000_000, 32_000_000,
-];
+const START_BAUD: u32 = 50_000;
+const END_BAUD: u32 = 1_000_000;
+const STEP_BAUD: usize = 10_000;
 
 pub fn run_benchmark_matrix<SPI, T, C, L>(
     spi: &mut SPI,
@@ -50,9 +42,9 @@ where
     C: SpiConfigurator<SPI>,
     L: Logger,
 {
-    let max_size = tx_buf.len().min(rx_buf.len());
+    let max_size = 1;
 
-    for &baud in &BAUD_RATES {
+    for baud in (START_BAUD..=END_BAUD).step_by(STEP_BAUD) {
         // Ask the environment to apply the baud rate
         let _ = configurator.set_baud_rate(spi, baud);
 
