@@ -42,7 +42,7 @@ where
     C: SpiConfigurator<SPI>,
     L: Logger,
 {
-    let max_size = 1;
+    let max_size = tx_buf.len().min(rx_buf.len());
 
     for baud in (START_BAUD..=END_BAUD).step_by(STEP_BAUD) {
         // Ask the environment to apply the baud rate
