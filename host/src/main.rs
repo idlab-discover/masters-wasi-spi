@@ -16,7 +16,7 @@ use gpio::{GpioCtx, GpioView};
 use spi::{SpiCtx, SpiView};
 
 wasmtime::component::bindgen!({
-    path: "../guest/wit",
+    path: "../guest-physics/wit",
     world: "app",
 });
 
@@ -37,6 +37,12 @@ pub struct HostState {
 impl my::debug::logging::Host for HostState {
     fn log(&mut self, msg: alloc::string::String) {
         defmt::info!("[Guest] {}", msg.as_str());
+    }
+}
+
+impl my::clock::time::Host for HostState {
+    fn now_ms(&mut self) -> u64 {
+        embassy_time::Instant::now().as_millis()
     }
 }
 
@@ -118,6 +124,8 @@ async fn main(_spawner: Spawner) {
     gpio::add_to_linker(&mut linker).unwrap();
     delay::add_to_linker(&mut linker).unwrap();
     my::debug::logging::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)
+        .unwrap();
+    my::clock::time::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)
         .unwrap();
 
     let guest_bytes = include_bytes!("guest.pulley");

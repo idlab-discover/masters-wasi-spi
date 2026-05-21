@@ -8,6 +8,7 @@ members = [
   "lib/host/delay", 
   "lib/host/gpio",
   "guest", 
+  "guest-physics",
   "linux-host", 
   "lib/guest/wasi-embedded-hal", 
   "benchmark/guest", 

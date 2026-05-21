@@ -1,0 +1,6 @@
+package my:clock;
+
+interface time {
+    // Returns the current time in milliseconds
+    now-ms: func() -> u64;
+}

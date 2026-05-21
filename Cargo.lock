@@ -1934,6 +1934,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "physics-guest"
+version = "0.1.0"
+dependencies = [
+ "display-interface-spi",
+ "embedded-graphics",
+ "embedded-hal 1.0.0",
+ "ssd1306",
+ "wasi-embedded-hal",
+ "wit-bindgen 0.48.1",
+]
+
+[[package]]
 name = "pico-args"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

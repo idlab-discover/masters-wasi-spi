@@ -4,9 +4,9 @@ set -e
 # Get the target from the first argument, default to "pico" if none provided
 TARGET=${1:-pico}
 
-if [[ "$TARGET" != "pico" && "$TARGET" != "linux" && "$TARGET" != "bench-linux" && "$TARGET" != "bench-pico" ]]; then
+if [[ "$TARGET" != "pico" && "$TARGET" != "linux" && "$TARGET" != "bench-linux" && "$TARGET" != "bench-pico" && "$TARGET" != "physics-pico" && "$TARGET" != "physics-linux" ]]; then
   echo "❌ Invalid target: $TARGET"
-  echo "Usage: ./build.sh [pico|linux|bench-linux|bench-pico]"
+  echo "Usage: ./build.sh [pico|linux|bench-linux|bench-pico|physics-pico|physics-linux]"
   exit 1
 fi
 
@@ -78,6 +78,52 @@ if [[ "$TARGET" == "bench-pico" ]]; then
   echo
   echo "========================================"
   echo "✅ Benchmark matrix completed successfully"
+  echo "========================================"
+  exit 0
+fi
+
+# --- PHYSICS PICO / LINUX RUN ---
+if [[ "$TARGET" == "physics-pico" || "$TARGET" == "physics-linux" ]]; then
+  echo
+  echo "========================================"
+  echo "🛠  Building physics guest crate (wasm32 target)"
+  echo "========================================"
+  cargo build -p physics-guest --target wasm32-unknown-unknown --release
+
+  echo
+  echo "========================================"
+  echo "📦 Creating Physics WASM component"
+  echo "========================================"
+  wasm-tools component new \
+    target/wasm32-unknown-unknown/release/physics_guest.wasm \
+    -o physics_guest.component.wasm
+
+  if [ "$TARGET" = "physics-pico" ]; then
+    echo
+    echo "========================================"
+    echo "🧩 Running compiler (Pulley) for Physics Demo"
+    echo "========================================"
+    # Overwrite guest.pulley so the pico host automatically picks it up without code changes
+    cargo run -p compiler -- physics_guest.component.wasm host/src/guest.pulley
+
+    echo
+    echo "========================================"
+    echo "🚀 Running pico2 firmware (release)"
+    echo "========================================"
+    cd host
+    cargo run --release
+    cd ..
+  elif [ "$TARGET" = "physics-linux" ]; then
+    echo
+    echo "========================================"
+    echo "🚀 Running Linux host for Physics Demo (release)"
+    echo "========================================"
+    cargo run -p linux-host --release -- --policy-file linux-host/policy.toml physics_guest.component.wasm
+  fi
+
+  echo
+  echo "========================================"
+  echo "✅ Physics Demo completed successfully"
   echo "========================================"
   exit 0
 fi

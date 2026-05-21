@@ -1,0 +1,11 @@
+package my:app;
+
+world app {
+    import my:debug/logging;
+    import wasi:delay/delay;
+    import wasi:gpio/gpio;
+    import wasi:spi/spi;
+    import my:clock/time;
+
+    export run: func();
+}

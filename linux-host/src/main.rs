@@ -18,7 +18,7 @@ use linux_embedded_hal::{CdevPin, Delay, SpidevDevice};
 use spidev::{SpiModeFlags, Spidev, SpidevOptions};
 
 wasmtime::component::bindgen!({
-    path: "../guest/wit",
+    path: "../guest-physics/wit",
     world: "app",
 });
 
@@ -50,6 +50,16 @@ struct HostState {
 impl my::debug::logging::Host for HostState {
     fn log(&mut self, msg: String) {
         println!("[Guest Log] {}", msg);
+    }
+}
+
+// Add this implementation block for the Linux host
+impl my::clock::time::Host for HostState {
+    fn now_ms(&mut self) -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
     }
 }
 
@@ -174,6 +184,7 @@ fn main() -> anyhow::Result<()> {
     gpio::add_to_linker(&mut linker)?;
     delay::add_to_linker(&mut linker)?;
     my::debug::logging::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
+    my::clock::time::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
 
     let mut store = Store::new(&engine, state);
 
