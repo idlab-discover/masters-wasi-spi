@@ -79,11 +79,11 @@ impl Guest for MainApp {
         let mut particles = Vec::new();
         for i in 0..10 {
             particles.push(Particle {
-                x: 55.0 + (i as f32 * 7.0),
+                x: 60.0 + (i as f32 * 6.0),
                 y: 18.0 + ((i % 3) as f32 * 4.0),
                 vx: if i % 2 == 0 { 1.5 } else { -1.2 },
                 vy: if i % 3 == 0 { 0.9 } else { -1.3 },
-                r: 2.0, // Radius of 2 pixels
+                r: 2.0,
             });
         }
 
@@ -91,14 +91,25 @@ impl Guest for MainApp {
         let mut current_fps: u32 = 0;
         let mut last_time = crate::my::clock::time::now_ms();
 
-        // The dimensions of the FPS protection box in the top-left corner
-        let box_w = 48.0;
         let box_h = 13.0;
 
         loop {
+            // 1. Calculate true FPS first so we know how big the box needs to be
+            frames += 1;
+            let now = crate::my::clock::time::now_ms();
+            if now - last_time >= 1000 {
+                current_fps = frames;
+                frames = 0;
+                last_time = now;
+            }
+
+            let info = format!("FPS: {}", current_fps);
+            // Dynamic width: 6 pixels per character + 5 pixels for padding
+            let box_w = (info.len() as f32 * 6.0) + 5.0;
+
             display.clear_buffer();
 
-            // 1. Move particles and handle wall & box collisions
+            // 2. Move particles and handle wall & dynamic box collisions
             for p in particles.iter_mut() {
                 p.x += p.vx;
                 p.y += p.vy;
@@ -120,7 +131,7 @@ impl Guest for MainApp {
                     p.vy = -p.vy;
                 }
 
-                // FPS Box Collision (Top-Left corner)
+                // FPS Box Collision (Top-Left corner) using dynamic width
                 if p.x - p.r < box_w && p.y - p.r < box_h {
                     let overlap_x = box_w - (p.x - p.r);
                     let overlap_y = box_h - (p.y - p.r);
@@ -128,15 +139,15 @@ impl Guest for MainApp {
                     // Bounce off the side that has the smallest overlap
                     if overlap_x < overlap_y {
                         p.x = box_w + p.r;
-                        p.vx = p.vx.abs(); // Force bounce to the right
+                        p.vx = p.vx.abs();
                     } else {
                         p.y = box_h + p.r;
-                        p.vy = p.vy.abs(); // Force bounce downwards
+                        p.vy = p.vy.abs();
                     }
                 }
             }
 
-            // 2. Handle ball-to-ball collisions
+            // 3. Handle ball-to-ball collisions
             for i in 0..particles.len() {
                 let (left, right) = particles.split_at_mut(i + 1);
                 let p1 = &mut left[i];
@@ -182,7 +193,7 @@ impl Guest for MainApp {
                 }
             }
 
-            // 3. Draw the particles
+            // 4. Draw the particles
             for p in &particles {
                 let _ = Circle::new(
                     Point::new((p.x - p.r) as i32, (p.y - p.r) as i32),
@@ -192,21 +203,11 @@ impl Guest for MainApp {
                 .draw(&mut display);
             }
 
-            // 4. Calculate true FPS
-            frames += 1;
-            let now = crate::my::clock::time::now_ms();
-            if now - last_time >= 1000 {
-                current_fps = frames;
-                frames = 0;
-                last_time = now;
-            }
-
-            // 5. Draw the FPS box and text over everything else
+            // 5. Draw the dynamic FPS box and text over everything else
             let _ = Rectangle::new(Point::new(0, 0), Size::new(box_w as u32, box_h as u32))
                 .into_styled(box_style)
                 .draw(&mut display);
 
-            let info = format!("FPS: {}", current_fps);
             let _ = Text::new(&info, Point::new(3, 9), text_style).draw(&mut display);
 
             // Send the buffer to the physical screen
