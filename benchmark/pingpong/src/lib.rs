@@ -1,4 +1,3 @@
-// benchmark/pingpong/src/lib.rs
 #![no_std]
 extern crate alloc;
 
@@ -11,21 +10,24 @@ pub trait Timer {
     fn elapsed_us(&self, start: Self::Instant) -> u64;
 }
 
-// Injects the ability to configure baud rates for the specific SPI type
 pub trait SpiConfigurator<SPI> {
     type Error;
     fn set_baud_rate(&mut self, spi: &mut SPI, baud: u32) -> Result<(), Self::Error>;
 }
 
-// Injects a logging capability
 pub trait Logger {
     fn log(&mut self, msg: &str);
 }
 
 const ITERATIONS: usize = 100;
-const START_BAUD: u32 = 50_000;
-const END_BAUD: u32 = 1_000_000;
-const STEP_BAUD: usize = 10_000;
+
+const PHASE1_START_BAUD: u32 = 50_000;
+const PHASE1_END_BAUD: u32 = 1_000_000;
+const PHASE1_STEP: usize = 10_000;
+
+const PHASE2_START_BAUD: u32 = 1_100_000;
+const PHASE2_END_BAUD: u32 = 32_000_000;
+const PHASE2_STEP: usize = 100_000;
 
 pub fn run_benchmark_matrix<SPI, T, C, L>(
     spi: &mut SPI,
@@ -44,7 +46,10 @@ where
 {
     let max_size = tx_buf.len().min(rx_buf.len());
 
-    for baud in (START_BAUD..=END_BAUD).step_by(STEP_BAUD) {
+    let phase1 = (PHASE1_START_BAUD..=PHASE1_END_BAUD).step_by(PHASE1_STEP);
+    let phase2 = (PHASE2_START_BAUD..=PHASE2_END_BAUD).step_by(PHASE2_STEP);
+
+    for baud in phase1.chain(phase2) {
         // Ask the environment to apply the baud rate
         let _ = configurator.set_baud_rate(spi, baud);
 
