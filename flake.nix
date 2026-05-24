@@ -37,6 +37,7 @@
           numpy
           matplotlib
           seaborn
+          scipy
         ]);
     in {
       devShells.default = pkgs.mkShell {
